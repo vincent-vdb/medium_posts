@@ -13,7 +13,7 @@ class MarkPoint:
 
 
 class Runetag:
-    def __init__(self, num_dots_per_layer: int = 43, gap_factor: float = 1.3, num_layers: int = 3):
+    def __init__(self, num_layers: int = 3, num_dots_per_layer: int = 43, gap_factor: float = 1.3):
         alpha = 2 * np.pi / num_dots_per_layer
         ellysize = alpha / (2 * gap_factor)
         radius_ratio = 1 / ellysize
@@ -105,7 +105,7 @@ class Runetag:
         return 1-image
 
 
-    def generate_random_tag(self, pixel_size: int = 128, output_path: str = None):
+    def generate_random_tag(self, pixel_size: int = 128, output_path: str = None, write_file: bool = True):
         # Generate keypoint labels for tag generation
         codes = np.random.randint(0, 2**self.num_layers-1, self.num_dots_per_layer-1)
         keypoint_labels = Runetag.slot_codes_to_binary_ids(codes, num_layers=self.num_layers, is_outer_first=True)
@@ -114,7 +114,9 @@ class Runetag:
         image = image[:, ::-1]
         # Write image
         if output_path is None:
-          output_path = f'tag_{self.num_layers}layers{self.num_dots_per_layer}.png'
+            output_path = f'tag_{self.num_layers}layers{self.num_dots_per_layer}.png'
         else:
-          output_path = output_path
-        cv2.imwrite(output_path, image*255)
+            output_path = output_path
+        if write_file:
+            cv2.imwrite(output_path, image*255)
+        return image

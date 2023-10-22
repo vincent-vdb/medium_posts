@@ -10,7 +10,7 @@ if __name__ == "__main__":
     parser.add_argument('--output_path', type=str, help='path to save the image', default=None)
     args = parser.parse_args()
 
-    rune_tag = Runetag(num_dots_per_layer=args.num_dots_per_layer, num_layers=args.num_layers)
+    rune_tag = Runetag(num_layers=args.num_layers, num_dots_per_layer=args.num_dots_per_layer)
     rune_tag.generate_random_tag(
         pixel_size=args.pixel_size,
         output_path=args.output_path,
