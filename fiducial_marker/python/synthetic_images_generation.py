@@ -28,7 +28,7 @@ def generate_synthetic_images_with_tag(
     """
     composition = [
         A.ColorJitter(brightness=[.5, 1.], p=0.1),
-        A.Affine(scale=[0.3, 1.], rotate=[-180, 180], shear=[-30, 30], fit_output=True, p=.9, cval=[250, 252, 254]),
+        A.Affine(scale=[0.3, 4.], rotate=[-180, 180], shear=[-30, 30], fit_output=True, p=.9, cval=[250, 252, 254]),
         A.Perspective(fit_output=True, p=.9, pad_val=[250, 252, 254]),
         A.MotionBlur(),
         A.Defocus(radius=(1, 5)),
@@ -92,7 +92,7 @@ def generate_synthetic_images_with_tag(
         bkg_image = output['image']
         # Save image and labels
         output_root = path_to_store_images + f'/synthetic_image_{idx}'
-        cv2.imwrite(output_root + '.png', bkg_image)
+        cv2.imwrite(output_root + '.jpg', bkg_image)
         # save image with cv2.imwrite, save labels to file with savetxt
         output_arr = np.array([[0] + list(transformed_labels[0])])
         np.savetxt(output_root + '.txt', output_arr, fmt='%f')
