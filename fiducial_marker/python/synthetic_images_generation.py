@@ -91,18 +91,20 @@ def generate_synthetic_images_with_tag(
         transformed_labels = output['bboxes']
         bkg_image = output['image']
         # Save image and labels
-        output_root = path_to_store_images + f'/synthetic_image_{idx}'
-        cv2.imwrite(output_root + '.jpg', bkg_image)
+        output_root_img = path_to_store_images + f'/images/synthetic_image_{idx}.jpg'
+        output_root_txt = path_to_store_images + f'/labels/synthetic_image_{idx}.txt'
+
+        cv2.imwrite(output_root_img, bkg_image)
         # save image with cv2.imwrite, save labels to file with savetxt
         output_arr = np.array([[0] + list(transformed_labels[0])])
-        np.savetxt(output_root + '.txt', output_arr, fmt='%f')
+        np.savetxt(output_root_txt, output_arr, fmt='%f')
         idx += 1
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate synthetic images and labels with rune tags')
     parser.add_argument('--number', type=int, help='number of synthetic images to generate', default=2)
-    parser.add_argument('--output_path', type=str, help='path to save the images', default='synthetic_data')
-    parser.add_argument('--background_path', type=str, help='path to background images', default='background_images')
+    parser.add_argument('--output_path', type=str, help='path to save the images', default='datasets/train/')
+    parser.add_argument('--background_path', type=str, help='path to background images', default='background_images/train/')
     parser.add_argument('--num_layers', type=int, help='number of layers in the tag', default=2)
     parser.add_argument('--num_dots_per_layer', type=int, help='number of dots per layers in the tag', default=24)
     args = parser.parse_args()
