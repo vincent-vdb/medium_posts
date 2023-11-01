@@ -28,3 +28,40 @@ the folder for background images and the output folder with the following argume
 - `--background_path`: path to background images, defaults to `background_images/train`
 - `--num_layers`: number of layers in the tag, defaults to `2`
 - `--num_dots_per_layer`: number of dots per layers in the tag, defaults to `24`
+
+## How to train an object detection model
+
+Once the synthetic data has been created and placed in the right folders, the YOLO model can be trained with the following command:
+
+```bash
+python train_yolo_model.py --input_model yolov8s.pt --epochs 100 --dataset_path datasets/dataset.yaml
+```
+
+This command will train a YOLOv8 small model for 100 epochs.
+
+The script parameters are the following:
+- `--input_model`: path to the input model or architecture. Defaults to `yolov8n.pt` which means a pre-trained YOLOv8 nano model. Check [YOLOv8 documentation](https://docs.ultralytics.com/modes/train/#usage-examples) for more details.
+- `--epochs`: number of epochs. Defaults to 10.
+- `--dataset_path`: path to the required yaml file. Again, refer to YOLOv8 documentation for more details.
+
+Once training is over, you may find all the results about it in the folder `runs/detect/train/`:
+- `weights` folder contains the model weights, to be used for inference
+- `results.csv` contains the results for each epoch
+- there are a bunch of other useful files of viz and results
+
+## How to test your object detection model on webcam feed
+
+Once the model has been trained, you can test it on a webcam to check how it works in real condition.
+
+To do so, just run the following script:
+
+```bash
+python run_yolo_webcam.py --input_model runs/detect/train/weights/best.pt 
+```
+
+The allowed parameters are the following:
+- `--input_model`: path to the model weights, most likely in `runs/detect/train/weights/best.pt`
+- `--video_input`: id of the webcam, useful for openCV, defaults to `0`
+- `--confidence_threshold`: confidence threshold for object detection, defaults to `0.25`
+
+
