@@ -32,7 +32,7 @@ def run_yolo_webcam(video_input: int, input_model_path: str, confidence_threshol
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Makeup gesture webcam demo')
+    parser = argparse.ArgumentParser(description='YOLO webcam demo')
     parser.add_argument('--video_input', type=int, help='Video input of the webcam', default=0)
     parser.add_argument('--input_model_path', type=str, help='Path to input yolo model', default='')
     parser.add_argument('--confidence_threshold', type=float, help='Minimum detection confidence threshold', default=0.25)
