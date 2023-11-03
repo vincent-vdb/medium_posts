@@ -3,7 +3,7 @@ import argparse
 import cv2
 from ultralytics import YOLO
 
-from decoding_utils import raw_webcam_image_to_tags
+from decoding_utils import raw_webcam_image_to_decoded_marker
 
 
 def run_decoding_webcam(
@@ -18,7 +18,9 @@ def run_decoding_webcam(
             # If loading a video, use 'break' instead of 'continue'.
             continue
 
-        codes, output, unwarped = raw_webcam_image_to_tags(image, model, num_layers, num_dots_per_layer, confidence_threshold)
+        codes, output, unwarped = raw_webcam_image_to_decoded_marker(
+            image, model, num_layers, num_dots_per_layer, confidence_threshold
+        )
         if len(codes) > 0:
             print(codes)
         cv2.imshow('YOLO', cv2.flip(output, 1))

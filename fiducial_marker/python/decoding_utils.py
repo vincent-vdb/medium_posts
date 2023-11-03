@@ -533,9 +533,15 @@ def get_boxes_from_model(
     return image, scores, boxes
 
 
-def raw_webcam_image_to_tags(image: np.array, model: YOLO, num_layers: int,
-                             num_dots_per_layer: int, detection_threshold: float = 0.25, draw_boxes: bool = True,
-                             display_tags: bool = True):
+def raw_webcam_image_to_decoded_marker(
+        image: np.array,
+        model: YOLO,
+        num_layers: int,
+        num_dots_per_layer: int,
+        detection_threshold: float = 0.25,
+        draw_boxes: bool = True,
+        display_tags: bool = False,
+):
     """Unwarp tags on image from detections.
 
     Params
@@ -564,8 +570,6 @@ def raw_webcam_image_to_tags(image: np.array, model: YOLO, num_layers: int,
       a list of list of unwarped images
 
     """
-    # Convert and resize the image
-    #image = cv2.resize(image, (640, 640))
     # Run tag detection model
     output, scores, boxes = get_boxes_from_model(
         image, model, detection_threshold=detection_threshold, draw_boxes=draw_boxes
