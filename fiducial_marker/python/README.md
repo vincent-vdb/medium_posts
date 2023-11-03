@@ -27,7 +27,7 @@ the folder for background images and the output folder with the following argume
 - `--output_path`: path to save the images, defaults to `datasets/train`
 - `--background_path`: path to background images, defaults to `background_images/train`
 - `--num_layers`: number of layers in the tag, defaults to `2`
-- `--num_dots_per_layer`: number of dots per layers in the tag, defaults to `24`
+- `--num_dots_per_layer`: number of dots per layers in the tag, defaults to `20`
 
 ## How to train an object detection model
 
@@ -64,4 +64,21 @@ The allowed parameters are the following:
 - `--video_input`: id of the webcam, useful for openCV, defaults to `0`
 - `--confidence_threshold`: confidence threshold for object detection, defaults to `0.25`
 
+## How to run the full pipeline
+
+Once you have a working object detection model, you can run the pipeline with the following script:
+
+```bash
+python webcam_decoding.py --input_model runs/detect/train/weights/best.pt
+```
+
+This will run the pipeline on your webcam feed, detecting and decoding your fiducial marker, 
+and printing the decoded code in the terminal.
+
+The available parameters for this script are the following:
+- `--input_model`: path to the model weights, most likely in `runs/detect/train/weights/best.pt`
+- `--video_input`: id of the webcam, useful for openCV, defaults to `0`
+- `--confidence_threshold`: confidence threshold for object detection, defaults to `0.25`
+- `--num_layers`: number of layers in the tag, defaults to `2`
+- `--num_dots_per_layer`: number of dots per layers in the tag, defaults to `20`
 
