@@ -40,7 +40,7 @@ if __name__ == "__main__":
         "--video_input", type=int, help="Video input of the webcam", default=0
     )
     parser.add_argument(
-        "--input_model_path", type=str, help="Path to input yolo model", default=""
+        "--input_model_path", type=str, help="Path to input yolo model", default="assets/best.pt"
     )
     parser.add_argument(
         "--confidence_threshold",

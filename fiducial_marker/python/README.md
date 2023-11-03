@@ -60,9 +60,11 @@ python run_yolo_webcam.py --input_model runs/detect/train/weights/best.pt
 ```
 
 The allowed parameters are the following:
-- `--input_model`: path to the model weights, most likely in `runs/detect/train/weights/best.pt`
+- `--input_model`: path to the model weights, most likely in `runs/detect/train/weights/best.pt` if you train your own
 - `--video_input`: id of the webcam, useful for openCV, defaults to `0`
 - `--confidence_threshold`: confidence threshold for object detection, defaults to `0.25`
+
+Note: a pre-trained model is available in `assets/best.pt`
 
 ## How to run the full pipeline
 
@@ -76,9 +78,10 @@ This will run the pipeline on your webcam feed, detecting and decoding your fidu
 and printing the decoded code in the terminal.
 
 The available parameters for this script are the following:
-- `--input_model`: path to the model weights, most likely in `runs/detect/train/weights/best.pt`
+- `--input_model`: path to the model weights, most likely in `runs/detect/train/weights/best.pt` if you train your own
 - `--video_input`: id of the webcam, useful for openCV, defaults to `0`
 - `--confidence_threshold`: confidence threshold for object detection, defaults to `0.25`
 - `--num_layers`: number of layers in the tag, defaults to `2`
 - `--num_dots_per_layer`: number of dots per layers in the tag, defaults to `20`
 
+Note: a pre-trained model is available in `assets/best.pt`
