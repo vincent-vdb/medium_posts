@@ -98,12 +98,11 @@ class Runetag:
         center = w/2 -0.5
 
         for radius, kpt_with_id in zip(radius_list, x_and_y_with_labels):
-            if  kpt_with_id[2] == 0: continue
+            if kpt_with_id[2] == 0: continue
             x,y = kpt_with_id[:2]
             Runetag.add_circle(image, x * scale_in_pixel+ center, y * scale_in_pixel+  center, radius * scale_in_pixel)
 
         return 1-image
-
 
     def generate_random_tag(self, pixel_size: int = 128, output_path: str = None, write_file: bool = True):
         # Generate keypoint labels for tag generation
@@ -120,3 +119,17 @@ class Runetag:
         if write_file:
             cv2.imwrite(output_path, image*255)
         return image
+
+    def generate_dots_keypoints_positions(self, pixel_size: int = 128) -> list:
+        keypoint_labels = [1] * self.num_layers * self.num_dots_per_layer
+        w = int(pixel_size * (self.xylim[1] - self.xylim[0]))
+        center = w / 2 - 0.5
+        x_and_y_with_labels = self.get_keypoints_with_labels(keypoint_labels)
+        res = []
+        for kpt_with_id in x_and_y_with_labels:
+            x, y = kpt_with_id[:2]
+            x = x * pixel_size + center
+            y = y * pixel_size + center
+            res.append([w - x, y])
+
+        return res
