@@ -80,7 +80,7 @@ def fit_ellipse_from_keypoints(keypoints, n_points: int = 10, display: bool = Fa
     keypoints = sorted(keypoints, key=lambda x: x.size, reverse=True)
     X = np.array([kpt.pt[0] for kpt in keypoints]).reshape(-1, 1)
     Y = np.array([kpt.pt[1] for kpt in keypoints]).reshape(-1, 1)
-    A = np.hstack([X ** 2, X * Y, Y ** 2, X, Y])[:n_points]
+    A = np.hstack([X**2, X * Y, Y**2, X, Y])[:n_points]
     b = np.ones_like(X[:n_points])
     x = np.linalg.lstsq(A, b, rcond=None)[0].squeeze()
 
@@ -88,23 +88,39 @@ def fit_ellipse_from_keypoints(keypoints, n_points: int = 10, display: bool = Fa
     x_coord = np.linspace(X.min() - 10, X.max() + 10, 100)
     y_coord = np.linspace(Y.min() - 10, Y.max() + 10, 100)
     X_coord, Y_coord = np.meshgrid(x_coord, y_coord)
-    center = np.array([0.5*(X.min() + X.max()), 0.5*(Y.min() + Y.max())])
+    center = np.array([0.5 * (X.min() + X.max()), 0.5 * (Y.min() + Y.max())])
 
     if display:
         plt.figure(figsize=(8, 8))
         # Plot the ellipse and data
-        Z_coord = x[0] * X_coord ** 2 + x[1] * X_coord * Y_coord + x[2] * Y_coord ** 2 + x[3] * X_coord + x[4] * Y_coord
-        plt.scatter(X, Y, label='Data Points')
-        plt.contour(X_coord, Y_coord, Z_coord, levels=[1], colors=('r'), linewidths=2, label='Ellipse fit')
+        Z_coord = (
+            x[0] * X_coord**2
+            + x[1] * X_coord * Y_coord
+            + x[2] * Y_coord**2
+            + x[3] * X_coord
+            + x[4] * Y_coord
+        )
+        plt.scatter(X, Y, label="Data Points")
+        plt.contour(
+            X_coord,
+            Y_coord,
+            Z_coord,
+            levels=[1],
+            colors=("r"),
+            linewidths=2,
+            label="Ellipse fit",
+        )
         plt.legend()
-        plt.xlabel('X')
-        plt.ylabel('Y')
+        plt.xlabel("X")
+        plt.ylabel("Y")
         plt.show()
 
     return x, center
 
 
-def get_keypoints_on_ellipse(keypoints, ellipse, threshold: float = 0.05) -> list[cv2.KeyPoint]:
+def get_keypoints_on_ellipse(
+    keypoints, ellipse, threshold: float = 0.05
+) -> list[cv2.KeyPoint]:
     """Get keypoints close to the ellipse, given keypoints and ellipse equation
 
     Params
@@ -124,15 +140,25 @@ def get_keypoints_on_ellipse(keypoints, ellipse, threshold: float = 0.05) -> lis
     res = []
     for kpt in keypoints:
         x, y = kpt.pt
-        ellipse_pos = ellipse[0] * x * x + ellipse[1] * x * y + ellipse[2] * y * y + ellipse[3] * x + ellipse[4] * y
+        ellipse_pos = (
+            ellipse[0] * x * x
+            + ellipse[1] * x * y
+            + ellipse[2] * y * y
+            + ellipse[3] * x
+            + ellipse[4] * y
+        )
         if abs(1 - ellipse_pos) < threshold:
             res.append(kpt)
     return res
 
 
-def compute_adjacency_matrix_size_corrected(keypoints: list[cv2.KeyPoint], distances: list[list[float]],
-                                            sizes: list[float], min_distance: float, threshold_dist: float = 1.5) -> \
-dict[int, list[int]]:
+def compute_adjacency_matrix_size_corrected(
+    keypoints: list[cv2.KeyPoint],
+    distances: list[list[float]],
+    sizes: list[float],
+    min_distance: float,
+    threshold_dist: float = 1.5,
+) -> dict[int, list[int]]:
     """Compute the adjacency matrix of the keypoints, based on their distances and sizes.
 
     Any keypoints pair for which distance is < threshold_dist * min distance * relative_size is considered adjacent
@@ -218,7 +244,9 @@ def compute_longest_connected_chain(adja: dict[int, list[int]]) -> list[int]:
     return res
 
 
-def find_longest_connected_points_on_ellipse(keypoints: list[cv2.KeyPoint], distance_threshold: float = 1.5):
+def find_longest_connected_points_on_ellipse(
+    keypoints: list[cv2.KeyPoint], distance_threshold: float = 1.5
+):
     """Find the longest connected chain on points for given keypoints list.
 
     Will compute the pairwise distance, the adjacency matrix and the longest chain.
@@ -246,16 +274,20 @@ def find_longest_connected_points_on_ellipse(keypoints: list[cv2.KeyPoint], dist
     distances = pairwise_distances([kpt.pt for kpt in keypoints])
     sizes = [kpt.size for kpt in keypoints]
     # Get the minimum distance
-    min_dist = distances[distances > 0.].min()
+    min_dist = distances[distances > 0.0].min()
     # Compute adjacency matrix
-    adja = compute_adjacency_matrix_size_corrected(keypoints, distances, sizes, min_dist, distance_threshold)
+    adja = compute_adjacency_matrix_size_corrected(
+        keypoints, distances, sizes, min_dist, distance_threshold
+    )
     # Compute the longest connected chain of points
     connected = compute_longest_connected_chain(adja)
     # Return the points locations
     return connected, adja, min_dist
 
 
-def is_point_symmetric_from_center(point1: np.array, point2: np.array, center: np.array, min_dist: float):
+def is_point_symmetric_from_center(
+    point1: np.array, point2: np.array, center: np.array, min_dist: float
+):
     """Compute symmetry of two points from a center, given a min_dist error threshold.
 
     Params
@@ -285,8 +317,12 @@ def is_point_symmetric_from_center(point1: np.array, point2: np.array, center: n
     return norm < min_dist, norm
 
 
-def find_symmetric_point_in_connected(connected: list[int], kpts_on_ellipse: list[cv2.KeyPoint], center: np.array,
-                                      dist_threshold: float) -> list[int]:
+def find_symmetric_point_in_connected(
+    connected: list[int],
+    kpts_on_ellipse: list[cv2.KeyPoint],
+    center: np.array,
+    dist_threshold: float,
+) -> list[int]:
     """Find a symmetric point between connected keypoints and kpts_on_ellipse keypoints wrt center.
 
     Params
@@ -314,7 +350,7 @@ def find_symmetric_point_in_connected(connected: list[int], kpts_on_ellipse: lis
                     np.array(kpts_on_ellipse[i].pt),
                     np.array(kpts_on_ellipse[j].pt),
                     center,
-                    dist_threshold
+                    dist_threshold,
                 )
                 if is_symmetric:
                     if min_dist is None or norm < min_dist:
@@ -323,8 +359,13 @@ def find_symmetric_point_in_connected(connected: list[int], kpts_on_ellipse: lis
     return res
 
 
-def generate_ref_points(connected: list[int], best_symmetry_idx: list[int], num_layers: int = 2,
-                        num_dots_per_layer: int = 24, symmetry_index_offset: int = 0) -> np.array:
+def generate_ref_points(
+    connected: list[int],
+    best_symmetry_idx: list[int],
+    num_layers: int = 2,
+    num_dots_per_layer: int = 24,
+    symmetry_index_offset: int = 0,
+) -> np.array:
     """Generate reference points position on which to match, given connected and symmetry index, as well as tag properties.
 
     Params
@@ -358,8 +399,11 @@ def generate_ref_points(connected: list[int], best_symmetry_idx: list[int], num_
     return np.array(ref_points)
 
 
-def get_keypoints_positions_from_indices(keypoints_on_ellipse: list[cv2.KeyPoint], connected: list[int],
-                                         best_symmetry_idx: list[int]) -> np.array:
+def get_keypoints_positions_from_indices(
+    keypoints_on_ellipse: list[cv2.KeyPoint],
+    connected: list[int],
+    best_symmetry_idx: list[int],
+) -> np.array:
     """Return the list connected + symmetric keypoints positions.
 
     Params
@@ -382,8 +426,13 @@ def get_keypoints_positions_from_indices(keypoints_on_ellipse: list[cv2.KeyPoint
     return np.array(res)
 
 
-def unwarp_tag_image(image: np.array, num_layers: int, num_dots_per_layer: int, min_num_keypoints: int,
-                     unwarping_offset: int = 2) -> list[np.array]:
+def unwarp_tag_image(
+    image: np.array,
+    num_layers: int,
+    num_dots_per_layer: int,
+    min_num_keypoints: int,
+    unwarping_offset: int = 2,
+) -> list[np.array]:
     """Return the list connected + symmetric keypoints positions.
 
     Params
@@ -404,7 +453,7 @@ def unwarp_tag_image(image: np.array, num_layers: int, num_dots_per_layer: int, 
     list[np.array]: a list of 5 unwarped images, for different unwarping references
 
     """
-    if image.max() <= 1.:
+    if image.max() <= 1.0:
         image = (image * 255).astype(np.uint8)
     # Detect blobs
     keypoints, resize = get_blobs_keypoints_from_crop(image)
@@ -419,14 +468,20 @@ def unwarp_tag_image(image: np.array, num_layers: int, num_dots_per_layer: int, 
     if len(connected) < 4:
         return image, None
     # Get symmetrical point from center if existing
-    best_symmetry_idx = find_symmetric_point_in_connected(connected, kpts_on_ellipse, center, min_dist)
+    best_symmetry_idx = find_symmetric_point_in_connected(
+        connected, kpts_on_ellipse, center, min_dist
+    )
 
     corrected_images = []
     for offset_index in range(-unwarping_offset, unwarping_offset + 1):
         # Get reference points
-        ref_points = generate_ref_points(connected, best_symmetry_idx, num_layers, num_dots_per_layer, offset_index)
+        ref_points = generate_ref_points(
+            connected, best_symmetry_idx, num_layers, num_dots_per_layer, offset_index
+        )
         # Get destination points
-        dst_points = get_keypoints_positions_from_indices(kpts_on_ellipse, connected, best_symmetry_idx)
+        dst_points = get_keypoints_positions_from_indices(
+            kpts_on_ellipse, connected, best_symmetry_idx
+        )
         # Compute homography
         H, _ = cv2.findHomography(dst_points, ref_points, 0, 5.0)
         # Correct image
@@ -454,12 +509,19 @@ def crop_image_with_box(image: np.array, bbox: list[int], border: int = 5) -> np
     np.array: the cropped image
 
     """
-    return image[max(0, int(bbox[1]) - border):min(image.shape[0], int(bbox[3]) + border),
-           max(0, int(bbox[0]) - border):min(image.shape[1], int(bbox[2]) + border)]
+    return image[
+        max(0, int(bbox[1]) - border) : min(image.shape[0], int(bbox[3]) + border),
+        max(0, int(bbox[0]) - border) : min(image.shape[1], int(bbox[2]) + border),
+    ]
 
 
-def unwarp_tags_from_detections(image: np.array, boxes: np.array, num_layers: int, num_dots_per_layer: int,
-                                min_num_keypoints: int = 10):
+def unwarp_tags_from_detections(
+    image: np.array,
+    boxes: np.array,
+    num_layers: int,
+    num_dots_per_layer: int,
+    min_num_keypoints: int = 10,
+):
     """Unwarp tags on image from detections.
 
     Params
@@ -485,14 +547,19 @@ def unwarp_tags_from_detections(image: np.array, boxes: np.array, num_layers: in
     res_images = []
     for box in boxes:
         crop = crop_image_with_box(image, box)
-        unwarped_images = unwarp_tag_image(crop, num_layers, num_dots_per_layer, min_num_keypoints)
+        unwarped_images = unwarp_tag_image(
+            crop, num_layers, num_dots_per_layer, min_num_keypoints
+        )
         res_images.append(unwarped_images)
 
     return res_images
 
 
 def get_boxes_from_model(
-        image: np.array, model: YOLO, detection_threshold: float = 0.5, draw_boxes: bool = False
+    image: np.array,
+    model: YOLO,
+    detection_threshold: float = 0.5,
+    draw_boxes: bool = False,
 ):
     """Compute and get the bounding boxes from the model inference on the given image
 
@@ -528,19 +595,21 @@ def get_boxes_from_model(
             boxes.append([x1, y1, x2, y2])
             scores.append(conf)
             if draw_boxes:
-                image = cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 3)
+                image = cv2.rectangle(
+                    image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 3
+                )
 
     return image, scores, boxes
 
 
 def raw_webcam_image_to_decoded_marker(
-        image: np.array,
-        model: YOLO,
-        num_layers: int,
-        num_dots_per_layer: int,
-        detection_threshold: float = 0.25,
-        draw_boxes: bool = True,
-        display_tags: bool = False,
+    image: np.array,
+    model: YOLO,
+    num_layers: int,
+    num_dots_per_layer: int,
+    detection_threshold: float = 0.25,
+    draw_boxes: bool = True,
+    display_tags: bool = False,
 ):
     """Unwarp tags on image from detections.
 
@@ -581,21 +650,34 @@ def raw_webcam_image_to_decoded_marker(
     if len(unwarped) > 0:
         for i in range(len(unwarped)):
             for offset in range(len(unwarped[i])):
-                if unwarped[i][offset] is not None and unwarped[i][offset].shape == (307, 307):
-                    code = decode_tag_from_image(unwarped[i][offset], num_layers, num_dots_per_layer)
+                if unwarped[i][offset] is not None and unwarped[i][offset].shape == (
+                    307,
+                    307,
+                ):
+                    code = decode_tag_from_image(
+                        unwarped[i][offset], num_layers, num_dots_per_layer
+                    )
                     if code != -1:
                         codes.append(code)
                         if display_tags:
-                            cv2.putText(unwarped[i][offset], f'tag {code}', (127, 127), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                                       (128, 128, 128), 2)
-                            cv2.imshow(f'tag{i}', unwarped[i][offset])
+                            cv2.putText(
+                                unwarped[i][offset],
+                                f"tag {code}",
+                                (127, 127),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                1,
+                                (128, 128, 128),
+                                2,
+                            )
+                            cv2.imshow(f"tag{i}", unwarped[i][offset])
                         break
 
     return codes, output, unwarped
 
 
-def compute_binary_code_from_image(image: np.array, num_layers: int, num_dots_per_layer: int, area_radius: int = 4) -> \
-list[int]:
+def compute_binary_code_from_image(
+    image: np.array, num_layers: int, num_dots_per_layer: int, area_radius: int = 4
+) -> list[int]:
     """Compute the tag binary code from an unwarped image.
 
     Params
@@ -625,9 +707,14 @@ list[int]:
         # Check if dot is present
         x, y = dot_center
         is_dot_area = np.any(
-            image[int(y) - area_radius: int(y) + area_radius + 1, int(x) - area_radius:int(x) + area_radius + 1] < 128)
+            image[
+                int(y) - area_radius : int(y) + area_radius + 1,
+                int(x) - area_radius : int(x) + area_radius + 1,
+            ]
+            < 128
+        )
         # Compute code
-        curr_code += is_dot_area * (2 ** curr_layer)
+        curr_code += is_dot_area * (2**curr_layer)
         curr_layer -= 1
         # If last layer, add code and reset all
         if curr_layer < 0:
@@ -639,13 +726,14 @@ list[int]:
         return None
     end_index = bin_code.index(-1)
     if end_index != len(bin_code) - 1:
-        bin_code = bin_code[end_index + 1:] + bin_code[:end_index + 1]
+        bin_code = bin_code[end_index + 1 :] + bin_code[: end_index + 1]
 
     return bin_code
 
 
-def decode_tag_from_image(image: np.array, num_layers: int,
-                          num_dots_per_layer: int) -> int:
+def decode_tag_from_image(
+    image: np.array, num_layers: int, num_dots_per_layer: int
+) -> int:
     """Decode tag from a given image (assumed unwarped) and a code table.
 
     Params
@@ -670,10 +758,10 @@ def decode_tag_from_image(image: np.array, num_layers: int,
     if bin_code is None:
         return -1
     # Compute a final value
-    power = 2 ** num_layers - 1
+    power = 2**num_layers - 1
     res = 0
     for i in range(len(bin_code) - 1):
         if bin_code[i] == -1:
             return -1
-        res += bin_code[i] * power ** i
+        res += bin_code[i] * power**i
     return res
