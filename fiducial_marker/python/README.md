@@ -1,4 +1,6 @@
-## Fiducial Marker
+# Fiducial Marker
+
+Python code of the Medium article [Tired of QR codes? Build your own fiducial marker](https://medium.com/towards-data-science/tired-of-qr-codes-build-you-own-fiducial-marker-aab81cce1f25), published in [Towards Data Science](https://towardsdatascience.com/).
 
 ## How to generate random tags
 
