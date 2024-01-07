@@ -55,24 +55,30 @@ def mask2yolo(image_path: str, mask_path: str, output: str) -> np.array:
     return res_polygons
 
 
-def generate_dataset_from_masks(images_path: str, masks_path: str, dataset_path: str) -> None:
-    for image in glob(images_path + '*/*.png'):
+def generate_dataset_from_masks(images_path: str, masks_path: str, dataset_path: str, train_ratio: float = 0.8) -> None:
+    all_images = glob(images_path + '*/*.png')
+    for i, image in enumerate(all_images):
         image_rootname = image.split('/')[-1].split('.')[0]
         # Get the associated mask if any
         mask = glob(masks_path + '*' + image_rootname + '*')
         if len(mask) == 1:
+            if i < train_ratio*len(all_images):
+                folder = 'train/'
+            else:
+                folder = 'val/'
             # Make the output path
-            output = dataset_path + 'labels/' + image_rootname + '.txt'
+            output = dataset_path + folder + 'labels/' + image_rootname + '.txt'
             mask2yolo(image, mask[0], output)
             # Copy the image in the datataset folder
-            shutil.copy(image, dataset_path + 'images/' + image_rootname + '.png')
+            shutil.copy(image, dataset_path + folder + 'images/' + image_rootname + '.png')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate YOLO dataset")
     parser.add_argument("--images_folder", type=str, help="Folder containing images", default='images/selected_images/')
     parser.add_argument("--selected_mask_folder", type=str, help="Folder containing selected masks", default="images/selected_masks/")
-    parser.add_argument("--dataset_path", type=str, help="Path to dataset folder", default="datasets/animals/train/")
+    parser.add_argument("--dataset_path", type=str, help="Path to dataset folder", default="datasets/animals/")
+    parser.add_argument("--train_ratio", type=float, help="Train ratio, between 0. and 1. Defaults to .8", default=0.8)
     args = parser.parse_args()
 
     generate_dataset_from_masks(args.images_folder, args.selected_mask_folder, args.dataset_path)
