@@ -1,5 +1,6 @@
 import argparse
 from glob import glob
+import random
 import shutil
 
 import matplotlib.pyplot as plt
@@ -57,12 +58,12 @@ def mask2yolo(image_path: str, mask_path: str, output: str) -> np.array:
 
 def generate_dataset_from_masks(images_path: str, masks_path: str, dataset_path: str, train_ratio: float = 0.8) -> None:
     all_images = glob(images_path + '*/*.png')
-    for i, image in enumerate(all_images):
+    for image in all_images:
         image_rootname = image.split('/')[-1].split('.')[0]
         # Get the associated mask if any
         mask = glob(masks_path + '*' + image_rootname + '*')
         if len(mask) == 1:
-            if i < train_ratio*len(all_images):
+            if random.uniform(0, 1) < train_ratio:
                 folder = 'train/'
             else:
                 folder = 'val/'
