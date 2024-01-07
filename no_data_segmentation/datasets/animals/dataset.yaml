@@ -1,0 +1,5 @@
+train: ../train/images
+val: ../valid/images
+
+nc: 4
+names: ['horse', 'lion', 'tiger', 'zebra']
