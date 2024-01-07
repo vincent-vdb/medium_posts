@@ -12,7 +12,7 @@ if __name__ == "__main__":
         "--dataset_path",
         type=str,
         help="path to dataset.yaml file",
-        default="datasets/dataset.yaml",
+        default="datasets/animals/dataset.yaml",
     )
     parser.add_argument(
         "--input_model", type=str, help="input model for YOLO", default="yolov8n-seg.pt"
