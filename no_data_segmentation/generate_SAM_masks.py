@@ -62,7 +62,6 @@ if __name__ == "__main__":
 
     generate_SAM_masks(
         args.images_folder,
-        args.images_folder,
         args.output_folder,
         args.closing_kernel,
         args.model_type,
