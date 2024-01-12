@@ -1,5 +1,6 @@
 import argparse
 from glob import glob
+import os
 import random
 import shutil
 
@@ -18,12 +19,11 @@ def mask_to_polygons(mask: np.array, min_mask_threshold: float = 900) -> list:
     for shape, value in features.shapes(mask.astype(np.int16), mask=mask, transform=rasterio.Affine(1.0, 0, 0, 0, 1.0, 0)):
         polygon = shapely.geometry.shape(shape)
         if polygon.area >= min_mask_threshold:
-            all_polygons.append(np.array(list(polygon.exterior.coords), dtype=np.int32))
+            all_polygons.append(np.array(list(polygon.exterior.segmentize(2).coords), dtype=np.int32))
     return all_polygons
 
 
-def mask2yolo(image_path: str, mask_path: str, output: str) -> np.array:
-
+def mask2yolo(image_path: str, mask_path: str, output: str):
     # Open output file
     file = open(output, "w")
     height, width = plt.imread(image_path).shape[:2]
@@ -32,15 +32,6 @@ def mask2yolo(image_path: str, mask_path: str, output: str) -> np.array:
     if len(polygons) == 0:
         print('no polygons found', mask_path)
         return None
-    if len(polygons) > 1:
-        print(mask_path)
-    res_polygons = np.zeros((0, 2))
-    final_coord = polygons[0][0]
-    for polygon in polygons:
-        polygon = np.append(polygon, polygon[0]).reshape(-1, 2)
-        polygon = np.append(polygon, final_coord).reshape(-1, 2)
-
-        res_polygons = np.concatenate([res_polygons, polygon])
 
     if 'horse' in image_path:
         file.write('0 ')
@@ -50,14 +41,22 @@ def mask2yolo(image_path: str, mask_path: str, output: str) -> np.array:
         file.write('2 ')
     else:
         file.write('3 ')
-    for point in res_polygons:
-        file.write(f'{str(point[0] / width)} {str(point[1] / height)} ')
+    for polygon in polygons:
+        for point in polygon:
+            file.write(f'{str(point[0] / width)} {str(point[1] / height)} ')
     file.write('\n')
-    return res_polygons
 
 
 def generate_dataset_from_masks(images_path: str, masks_path: str, dataset_path: str, train_ratio: float = 0.8) -> None:
     all_images = glob(images_path + '*/*.png')
+    if not os.path.exists(dataset_path + '/train'):
+        os.mkdir(dataset_path + '/train')
+        os.mkdir(dataset_path + '/train/images')
+        os.mkdir(dataset_path + '/train/labels')
+    if not os.path.exists(dataset_path + '/val'):
+        os.mkdir(dataset_path + '/val')
+        os.mkdir(dataset_path + '/val/images')
+        os.mkdir(dataset_path + '/val/labels')
     for image in all_images:
         image_rootname = image.split('/')[-1].split('.')[0]
         # Get the associated mask if any
