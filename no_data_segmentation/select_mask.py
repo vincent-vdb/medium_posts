@@ -22,13 +22,8 @@ def on_press(key, left, right, mask_folder):
         return False
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Select masks")
-    parser.add_argument("--images_folder", type=str, help="Folder containing images", default='images/')
-    parser.add_argument("--selected_mask_folder", type=str, help="Folder path to store selected masks", default="images/selected_masks/")
-    args = parser.parse_args()
-
-    image_names = glob(args.images_folder + 'selected_images/*/*.png')
+def select_mask(images_folder: str, masks_folder: str):
+    image_names = glob(images_folder + 'selected_images/*/*.png')
 
     for image_name in image_names:
 
@@ -49,7 +44,14 @@ if __name__ == "__main__":
         if cv2.waitKey(5) & 0xFF == 27:
            break
 
-        with keyboard.Listener(on_press=lambda event: on_press(event, left=falsemask_path, right=truemask_path, mask_folder=args.selected_mask_folder)) as listener:
+        with keyboard.Listener(on_press=lambda event: on_press(event, left=falsemask_path, right=truemask_path, mask_folder=masks_folder)) as listener:
            listener.join()
 
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Select masks")
+    parser.add_argument("--images_folder", type=str, help="Folder containing images", default='images/')
+    parser.add_argument("--selected_masks_folder", type=str, help="Folder path to store selected masks", default="images/selected_masks/")
+    args = parser.parse_args()
+
+    select_mask(args.images_folder, args.selected_masks_folder)
