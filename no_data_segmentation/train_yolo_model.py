@@ -5,7 +5,7 @@ from ultralytics import YOLO
 
 def train_yolo_model(input_model: str, dataset_filepath: str, epochs: int):
     model = YOLO(input_model)
-    model.train(data=dataset_filepath, epochs=epochs)
+    model.train(data=dataset_filepath, epochs=epochs, mask_ratio=1)
 
 
 if __name__ == "__main__":
