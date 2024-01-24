@@ -35,9 +35,22 @@ You may specify the following arguments to suit your need:
 ## How to create the YOLO dataset
 
 Assuming the previous steps were respected with all the defaults parameters,
-you can simply run the following script the create the YOLO dataset:
+you can simply run the following script to create the YOLO dataset:
 ```bash
 python train_yolo_model.py --input_model yolov8s.pt --epochs 100 --dataset_path datasets/dataset.yaml
+```
+
+At the end, you should get the following folder architecture: 
+```
+datasets
+└── animals
+    ├── train
+    │   ├── images: N images (e.g., jpeg or png files)
+    │   └── labels: N labels (txt files)
+    ├── val
+    │   ├── images: M images (e.g., jpeg or png files)
+    │   └── labels: M labels (txt files)
+    └── dataset.yaml
 ```
 
 - `--images_folder`: string, defaults to `images/selected_images`, path to the selected images
