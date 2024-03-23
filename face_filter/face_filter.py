@@ -5,10 +5,20 @@ import numpy as np
 import utils
 import csv
 import time
+from typing import Optional
+
 
 class FaceFilter:
-    def __init__(self, display_face_points: bool = False, video: int = 0, sigma: int = 50):
-        self.filters_config = {
+    def __init__(self, display_face_points: bool = False, video: int = 0, sigma: int = 50) -> None:
+        """
+        Initializes the FaceFilter class with configurations for filters, video source, and other settings.
+
+        Args:
+            display_face_points (bool): Whether to display face points on the video. Defaults to False.
+            video (int): Video source. Defaults to 0.
+            sigma (int): Sigma value for optical flow stabilization. Defaults to 50.
+        """
+        self.filters_config: dict = {
             'multicolor':
                 [{'path': "assets/multicolor_transparent.png",
                   'anno_path': "assets/multicolor_labels.csv",
@@ -23,17 +33,26 @@ class FaceFilter:
         self.display_face_points = display_face_points
         self.sigma = sigma
         self.timer = time.time()
-        self.points_dst_prev = None
-        self.img_gray_prev = None
+        self.points_dst_prev: Optional[np.ndarray] = None
+        self.img_gray_prev: Optional[np.ndarray] = None
         self.video = video
-        self.selected_keypoint_indices = [
+        self.selected_keypoint_indices: list[int] = [
             127, 93, 58, 136, 150, 149, 176, 148, 152, 377, 400, 378, 379, 365, 288, 323, 356, 70, 63, 105, 66, 55, 285,
             296, 334, 293, 300, 168, 6, 195, 4, 64, 60, 94, 290, 439, 33, 160, 158, 173, 153, 144, 398, 385, 387, 466,
             373, 380, 61, 40, 39, 0, 269, 270, 291, 321, 405, 17, 181, 91, 78, 81, 13, 311, 306, 402, 14, 178, 162, 54,
             67, 10,297, 284, 389,
         ]
 
-    def load_filter(self, filter_name="anonymous"):
+    def load_filter(self, filter_name: str = "anonymous") -> tuple:
+        """
+        Loads filter configurations and runtime data for a given filter name.
+
+        Args:
+            filter_name (str): The name of the filter to load. Defaults to "anonymous".
+
+        Returns:
+            tuple: A tuple containing filter configurations and runtime data.
+        """
         filters = self.filters_config[filter_name]
         multi_filter_runtime = []
         for filter in filters:
@@ -69,7 +88,10 @@ class FaceFilter:
 
         return filters, multi_filter_runtime
 
-    def switch_filter(self):
+    def switch_filter(self) -> None:
+        """
+        Switches to the next filter in the configuration.
+        """
         try:
             self.filters, self.multi_filter_runtime = self.load_filter(next(self.iter_filter_keys))
         except StopIteration:
@@ -77,7 +99,16 @@ class FaceFilter:
             self.filters, self.multi_filter_runtime = self.load_filter(next(self.iter_filter_keys))
 
     @staticmethod
-    def load_landmarks(annotation_file):
+    def load_landmarks(annotation_file: str) -> dict[str, tuple[int, int]]:
+        """
+        Loads landmarks from a CSV annotation file.
+
+        Args:
+            annotation_file (str): Path to the CSV file containing landmarks.
+
+        Returns:
+            dict[str, tuple[int, int]]: A dictionary of landmarks.
+        """
         with open(annotation_file) as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=",")
             points = {}
@@ -90,7 +121,17 @@ class FaceFilter:
             return points
 
     @staticmethod
-    def load_filter_img(img_path, has_alpha):
+    def load_filter_img(img_path: str, has_alpha: bool) -> tuple[np.ndarray, Optional[np.ndarray]]:
+        """
+        Loads an image and optionally its alpha channel.
+
+        Args:
+            img_path (str): Path to the image file.
+            has_alpha (bool): Whether the image has an alpha channel.
+
+        Returns:
+            tuple[np.ndarray, Optional[np.ndarray]]: The image and its alpha channel if present.
+        """
         img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
         alpha = None
         if has_alpha:
@@ -98,7 +139,18 @@ class FaceFilter:
             img = cv2.merge((b, g, r))
         return img, alpha
 
-    def optical_flow_stabilization(self, frame, points_dst, is_first_frame):
+    def optical_flow_stabilization(self, frame: np.ndarray, points_dst: list[tuple[int, int]], is_first_frame: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Applies optical flow stabilization to the given frame based on destination points.
+
+        Args:
+            frame (np.ndarray): The current video frame.
+            points_dst (list[tuple[int, int]]): Destination points for optical flow stabilization.
+            is_first_frame (bool): Indicates if this is the first frame of the video.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray]: The stabilized frame, previous destination points, and previous grayscale image.
+        """
         img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if is_first_frame:
             self.points_dst_prev = np.array(points_dst, np.float32)
@@ -128,13 +180,41 @@ class FaceFilter:
 
         return frame, self.points_dst_prev, self.img_gray_prev
 
-    def visualize_face_points(self, frame, points_dst):
+    @staticmethod
+    def visualize_face_points(frame: np.ndarray, points_dst: list[tuple[int, int]]) -> None:
+        """
+        Visualizes face points on the given frame.
+
+        Args:
+            frame (np.ndarray): The current video frame.
+            points_dst (list[tuple[int, int]]): Face points to visualize.
+        """
         viz = np.copy(frame)
         for idx, point in enumerate(points_dst):
             cv2.circle(viz, tuple(point), 2, (255, 0, 0), -1)
         cv2.imshow("landmarks", np.flip(viz, axis=1))
 
-    def apply_morph_filter(self, frame, img_src, img_src_alpha, filter_runtime, points_dst):
+    @staticmethod
+    def apply_morph_filter(
+            frame: np.ndarray,
+            img_src: np.ndarray,
+            img_src_alpha: np.ndarray,
+            filter_runtime: dict,
+            points_dst: list[tuple[int, int]]
+    ) -> np.ndarray:
+        """
+        Applies a morphing filter to the frame based on source and destination points.
+
+        Args:
+            frame (np.ndarray): The current video frame.
+            img_src (np.ndarray): Source image for the filter.
+            img_src_alpha (np.ndarray): Alpha channel of the source image.
+            filter_runtime (dict): Runtime data for the filter.
+            points_dst (list[tuple[int, int]]): Destination points for the filter.
+
+        Returns:
+            np.ndarray: The frame with the morphing filter applied.
+        """
         indexes, dt, landmarks_src = filter_runtime['indexes'], filter_runtime['dt'], filter_runtime['landmarks']
         warped_img = np.copy(frame)
         landmarks_dst = [points_dst[i[0]] for i in indexes]
@@ -156,7 +236,27 @@ class FaceFilter:
         temp_dst = np.multiply(frame, (mask_dst * (1.0 / 255)))
         return temp_src + temp_dst
 
-    def apply_similarity_transform(self, frame, img_src, img_src_alpha, points_src, points_dst):
+    @staticmethod
+    def apply_similarity_transform(
+            frame: np.ndarray,
+            img_src: np.ndarray,
+            img_src_alpha: np.ndarray,
+            points_src: dict[str, tuple[int, int]],
+            points_dst: list[tuple[int, int]]
+    ) -> np.ndarray:
+        """
+        Applies a similarity transform to the frame based on source and destination points.
+
+        Args:
+            frame (np.ndarray): The current video frame.
+            img_src (np.ndarray): Source image for the filter.
+            img_src_alpha (np.ndarray): Alpha channel of the source image.
+            points_src (dict[str, tuple[int, int]]): Source points for the transform.
+            points_dst (list[tuple[int, int]]): Destination points for the transform.
+
+        Returns:
+            np.ndarray: The frame with the similarity transform applied.
+        """
         dst_points = [
             points_dst[int(list(points_src.keys())[0])],
             points_dst[int(list(points_src.keys())[16])],
@@ -175,7 +275,16 @@ class FaceFilter:
         temp_dst = np.multiply(frame, (mask_dst * (1.0 / 255)))
         return temp_src + temp_dst
 
-    def add_fps_text(self, output):
+    def add_fps_text(self, output: np.ndarray) -> np.ndarray:
+        """
+        Adds FPS text to the output frame.
+
+        Args:
+            output (np.ndarray): The output frame to add FPS text to.
+
+        Returns:
+            np.ndarray: The output frame with FPS text added.
+        """
         fps = 1 / (time.time() - self.timer)
         self.timer = time.time()
         output = np.uint8(output)
@@ -184,7 +293,16 @@ class FaceFilter:
             output.astype(np.uint8), f"fps: {fps:.2f}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 0, 0), 1
         )
 
-    def get_landmarks(self, img):
+    def get_landmarks(self, img: np.ndarray) -> Optional[list[tuple[int, int]]]:
+        """
+        Extracts relevant landmarks from the given image.
+
+        Args:
+            img (np.ndarray): The image to extract landmarks from.
+
+        Returns:
+            Optional[list[tuple[int, int]]]: A list of relevant landmarks or 0 if no face is detected.
+        """
         mp_face_mesh = mp.solutions.face_mesh
         height, width = img.shape[:-1]
 
@@ -192,7 +310,7 @@ class FaceFilter:
             results = face_mesh.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             if not results.multi_face_landmarks:
                 print('No face detected')
-                return 0
+                return None
 
             for face_landmarks in results.multi_face_landmarks:
                 values = np.array(face_landmarks.landmark)
@@ -209,9 +327,12 @@ class FaceFilter:
                 for i in self.selected_keypoint_indices:
                     relevant_keypnts.append(face_keypnts[i])
                 return relevant_keypnts
-        return 0
+        return None
 
-    def run(self):
+    def run(self) -> None:
+        """
+        Main loop for running the face filter application.
+        """
         cap = cv2.VideoCapture(self.video)
         is_first_frame = True
         while True:
@@ -220,7 +341,7 @@ class FaceFilter:
                 break
 
             points_dst = self.get_landmarks(frame)
-            if not points_dst or len(points_dst) != 75:
+            if points_dst is None or len(points_dst) != 75:
                 continue
 
             frame, points_dst_prev, img_gray_prev = self.optical_flow_stabilization(frame, points_dst, is_first_frame)
@@ -230,11 +351,11 @@ class FaceFilter:
                 self.visualize_face_points(frame, points_dst)
 
             for idx, filter in enumerate(self.filters):
-                filter_runtime = self.multi_filter_runtime[idx]
-                img_src, points_src, img_src_alpha = filter_runtime['img'], filter_runtime['points'], filter_runtime['img_a']
+                filter_run = self.multi_filter_runtime[idx]
+                img_src, points_src, img_src_alpha = filter_run['img'], filter_run['points'], filter_run['img_a']
 
                 if filter['morph']:
-                    output = self.apply_morph_filter(frame, img_src, img_src_alpha, filter_runtime, points_dst)
+                    output = self.apply_morph_filter(frame, img_src, img_src_alpha, filter_run, points_dst)
                 else:
                     output = self.apply_similarity_transform(frame, img_src, img_src_alpha, points_src, points_dst)
 
