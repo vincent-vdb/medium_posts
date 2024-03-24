@@ -1,181 +1,169 @@
+import math
 import cv2
 import numpy as np
-import math
+from typing import Tuple, List
 
 
-# Constrains points to be inside boundary
-def constrain_point(p, w, h):
-  p = (min(max(p[0], 0), w - 1), min(max(p[1], 0), h - 1))
-  return p
+def constrain_point(p: Tuple[int, int], w: int, h: int) -> Tuple[int, int]:
+  """
+  Constrains a point to be inside a given boundary.
+
+  Args:
+    p: A tuple representing the point (x, y).
+    w: The width of the boundary.
+    h: The height of the boundary.
+
+  Returns:
+    A tuple representing the constrained point.
+  """
+  constrained_point = (min(max(p[0], 0), w - 1), min(max(p[1], 0), h - 1))
+  return constrained_point
 
 
-# Compute similarity transform given two sets of two points.
-# OpenCV requires 3 pairs of corresponding points.
-# We are faking the third one.
-def similarity_transform(inPoints, outPoints):
-  s60 = math.sin(60*math.pi/180)
-  c60 = math.cos(60*math.pi/180)
+def similarity_transform(in_points: np.ndarray, out_points: np.ndarray) -> np.ndarray:
+  """
+  Compute similarity transform given two sets of two points. OpenCV requires 3 pairs of corresponding points.
+  We are faking the third one.
 
-  inPts = np.copy(inPoints).tolist()
-  outPts = np.copy(outPoints).tolist()
+  Args:
+    in_points: Input points for the transformation.
+    out_points: Output points for the transformation.
 
-  # The third point is calculated so that the three points make an equilateral triangle
-  xin = c60*(inPts[0][0] - inPts[1][0]) - s60*(inPts[0][1] - inPts[1][1]) + inPts[1][0]
-  yin = s60*(inPts[0][0] - inPts[1][0]) + c60*(inPts[0][1] - inPts[1][1]) + inPts[1][1]
+  Returns:
+    The transformation matrix.
+  """
+  s60 = math.sin(60 * math.pi / 180)
+  c60 = math.cos(60 * math.pi / 180)
 
-  inPts.append([int(xin), int(yin)])
+  in_pts = np.copy(in_points).tolist()
+  out_pts = np.copy(out_points).tolist()
 
-  xout = c60*(outPts[0][0] - outPts[1][0]) - s60*(outPts[0][1] - outPts[1][1]) + outPts[1][0]
-  yout = s60*(outPts[0][0] - outPts[1][0]) + c60*(outPts[0][1] - outPts[1][1]) + outPts[1][1]
+  xin = c60 * (in_pts[0][0] - in_pts[1][0]) - s60 * (in_pts[0][1] - in_pts[1][1]) + in_pts[1][0]
+  yin = s60 * (in_pts[0][0] - in_pts[1][0]) + c60 * (in_pts[0][1] - in_pts[1][1]) + in_pts[1][1]
 
-  outPts.append([int(xout), int(yout)])
+  in_pts.append([int(xin), int(yin)])
 
-  # Now we can use estimateRigidTransform for calculating the similarity transform.
-  tform, _ = cv2.estimateAffinePartial2D(np.array([inPts]), np.array([outPts]))
-  return tform
+  xout = c60 * (out_pts[0][0] - out_pts[1][0]) - s60 * (out_pts[0][1] - out_pts[1][1]) + out_pts[1][0]
+  yout = s60 * (out_pts[0][0] - out_pts[1][0]) + c60 * (out_pts[0][1] - out_pts[1][1]) + out_pts[1][1]
 
+  out_pts.append([int(xout), int(yout)])
 
-# Check if a point is inside a rectangle
-def rect_contains(rect, point):
-  if point[0] < rect[0]:
-    return False
-  elif point[1] < rect[1]:
-    return False
-  elif point[0] > rect[2]:
-    return False
-  elif point[1] > rect[3]:
-    return False
-  return True
+  matrix, _ = cv2.estimateAffinePartial2D(np.array([in_pts]), np.array([out_pts]))
+  return matrix
 
 
-# Calculate Delaunay triangles for set of points
-# Returns the vector of indices of 3 points for each triangle
-def calculate_delaunay_triangles(rect, points):
+def rect_contains(rect: Tuple[int, int, int, int], point: Tuple[int, int]) -> bool:
+  """
+  Check if a point is inside a rectangle.
 
-  # Create an instance of Subdiv2D
+  Args:
+    rect: A tuple representing the rectangle (x, y, width, height).
+    point: A tuple representing the point (x, y).
+
+  Returns:
+    True if the point is inside the rectangle, False otherwise.
+  """
+  return rect[0] <= point[0] <= rect[2] and rect[1] <= point[1] <= rect[3]
+
+
+def calculate_delaunay_triangles(
+        rect: Tuple[int, int, int, int],
+        points: List[Tuple[int, int]],
+) -> List[Tuple[int, int, int]]:
+  """
+  Calculate Delaunay triangles for a set of points.
+
+  Args:
+    rect: A tuple representing the rectangle in which to calculate the Delaunay triangles.
+    points: A list of tuples representing the points.
+
+  Returns:
+    A list of tuples, each containing the indices of the 3 points forming a triangle.
+  """
   subdiv = cv2.Subdiv2D(rect)
 
-  # Insert points into subdiv
   for p in points:
     subdiv.insert((p[0], p[1]))
 
-  # Get Delaunay triangulation
-  triangleList = subdiv.getTriangleList()
+  triangle_list = subdiv.getTriangleList()
+  delaunay_tri = []
 
-  # Find the indices of triangles in the points array
-  delaunayTri = []
-
-  for t in triangleList:
-    # The triangle returned by getTriangleList is
-    # a list of 6 coordinates of the 3 points in
-    # x1, y1, x2, y2, x3, y3 format.
-    # Store triangle as a list of three points
-    pt = []
-    pt.append((t[0], t[1]))
-    pt.append((t[2], t[3]))
-    pt.append((t[4], t[5]))
-
-    pt1 = (t[0], t[1])
-    pt2 = (t[2], t[3])
-    pt3 = (t[4], t[5])
+  for t in triangle_list:
+    pt1, pt2, pt3 = (t[0], t[1]), (t[2], t[3]), (t[4], t[5])
 
     if rect_contains(rect, pt1) and rect_contains(rect, pt2) and rect_contains(rect, pt3):
-      # Variable to store a triangle as indices from list of points
       ind = []
-      # Find the index of each vertex in the points list
-      for j in range(0, 3):
-        for k in range(0, len(points)):
-          if(abs(pt[j][0] - points[k][0]) < 1.0 and abs(pt[j][1] - points[k][1]) < 1.0):
+      for j, pt in enumerate([pt1, pt2, pt3]):
+        for k, p in enumerate(points):
+          if abs(pt[0] - p[0]) < 1.0 and abs(pt[1] - p[1]) < 1.0:
             ind.append(k)
-        # Store triangulation as a list of indices
       if len(ind) == 3:
-        delaunayTri.append((ind[0], ind[1], ind[2]))
+        delaunay_tri.append((ind[0], ind[1], ind[2]))
 
-  return delaunayTri
-
-# Apply affine transform calculated using srcTri and dstTri to src and
-# output an image of size.
-def apply_affine_transform(src, srcTri, dstTri, size):
-
-  # Given a pair of triangles, find the affine transform.
-  warpMat = cv2.getAffineTransform(np.float32(srcTri), np.float32(dstTri))
-
-  # Apply the Affine Transform just found to the src image
-  dst = cv2.warpAffine(src, warpMat, (size[0], size[1]), None,
-             flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
-
-  return dst, warpMat
-
-# Warps and alpha blends triangular regions from img1 and img2 to img
-def warp_triangle(img1, img2, t1, t2):
-  # Find bounding rectangle for each triangle
-  r1 = cv2.boundingRect(np.float32([t1]))
-  r2 = cv2.boundingRect(np.float32([t2]))
-
-  # Offset points by left top corner of the respective rectangles
-  t1Rect = []
-  t2Rect = []
-  t2RectInt = []
-
-  for i in range(0, 3):
-    t1Rect.append(((t1[i][0] - r1[0]), (t1[i][1] - r1[1])))
-    t2Rect.append(((t2[i][0] - r2[0]), (t2[i][1] - r2[1])))
-    t2RectInt.append(((t2[i][0] - r2[0]), (t2[i][1] - r2[1])))
-
-  # Get mask by filling triangle
-  mask = np.zeros((r2[3], r2[2], 3), dtype=np.float32)
-  cv2.fillConvexPoly(mask, np.array(t2RectInt).astype(int), (1.0, 1.0, 1.0), 16, 0)
-
-  # Apply warpImage to small rectangular patches
-  img1Rect = img1[r1[1]:r1[1] + r1[3], r1[0]:r1[0] + r1[2]]
-
-  size = (r2[2], r2[3])
-
-  img2Rect, warpMat = apply_affine_transform(img1Rect, t1Rect, t2Rect, size)
-
-  # mask = cv2.warpAffine(mask, warpMat, (size[0], size[1]), None,
-  #            flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
-  img2Rect = img2Rect * mask
-
-  # Copy triangular region of the rectangular patch to the output image
-  img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] * ((1.0, 1.0, 1.0) - mask)
-  img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] + img2Rect
-
-  return warpMat
+  return delaunay_tri
 
 
-# Warps an image in a piecewise affine manner.
-# The warp is defined by the movement of landmark points specified by pointsIn
-# to a new location specified by pointsOut. The triangulation beween points is specified
-# by their indices in delaunayTri.
-def warp_image(imIn, pointsIn, pointsOut, delaunayTri):
-  h, w, ch = imIn.shape
-  # Output image
-  imOut = np.zeros(imIn.shape, dtype=imIn.dtype)
+def apply_affine_transform(
+        src: np.ndarray,
+        src_tri: List[Tuple[int, int]],
+        dst_tri: List[Tuple[int, int]],
+        size: Tuple[int, int],
+) -> Tuple[np.ndarray, np.ndarray]:
+  """
+  Apply affine transform calculated using srcTri and dstTri to src and output an image of size.
 
-  # Warp each input triangle to output triangle.
-  # The triangulation is specified by delaunayTri
-  for j in range(0, len(delaunayTri)):
-    # Input and output points corresponding to jth triangle
-    tin = []
-    tout = []
+  Args:
+    src: Source image.
+    src_tri: List of tuples representing the vertices of the source triangle.
+    dst_tri: List of tuples representing the vertices of the destination triangle.
+    size: A tuple representing the size of the output image.
 
-    for k in range(0, 3):
-      # Extract a vertex of input triangle
-      pIn = pointsIn[delaunayTri[j][k]]
-      # Make sure the vertex is inside the image.
-      pIn = constrain_point(pIn, w, h)
+  Returns:
+    The transformed image and the warp matrix.
+  """
+  warp_mat = cv2.getAffineTransform(np.float32(src_tri), np.float32(dst_tri))
+  dst = cv2.warpAffine(
+    src, warp_mat, (size[0], size[1]), None, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101
+  )
 
-      # Extract a vertex of the output triangle
-      pOut = pointsOut[delaunayTri[j][k]]
-      # Make sure the vertex is inside the image.
-      pOut = constrain_point(pOut, w, h)
+  return dst, warp_mat
 
-      # Push the input vertex into input triangle
-      tin.append(pIn)
-      # Push the output vertex into output triangle
-      tout.append(pOut)
 
-    # Warp pixels inside input triangle to output triangle.
-    warp_triangle(imIn, imOut, tin, tout)
-  return imOut
+def warp_triangle(
+        img_src: np.ndarray,
+        img_dst: np.ndarray,
+        t_src: List[Tuple[int, int]],
+        t_dst: List[Tuple[int, int]],
+) -> np.ndarray:
+  """
+  Warps and alpha blends triangular regions from img_src and img_dst to img.
+
+  Args:
+    img_src: Source image.
+    img_dst: Destination image.
+    t_src: List of tuples representing the vertices of the triangle in the source image.
+    t_dst: List of tuples representing the vertices of the triangle in the destination image.
+
+  Returns:
+    The warp matrix.
+  """
+  r_src = cv2.boundingRect(np.float32([t_src]))
+  r_dst = cv2.boundingRect(np.float32([t_dst]))
+
+  t_src_rect = [(pt[0] - r_src[0], pt[1] - r_src[1]) for pt in t_src]
+  t_dst_rect = [(pt[0] - r_dst[0], pt[1] - r_dst[1]) for pt in t_dst]
+  t_dst_rect_int = [tuple(map(int, pt)) for pt in t_dst_rect]
+
+  mask = np.zeros((r_dst[3], r_dst[2], 3), dtype=np.float32)
+  cv2.fillConvexPoly(mask, np.array(t_dst_rect_int), (1.0, 1.0, 1.0), 16, 0)
+
+  img_src_rect = img_src[r_src[1]:r_src[1] + r_src[3], r_src[0]:r_src[0] + r_src[2]]
+  size = (r_dst[2], r_dst[3])
+
+  img_dst_rect, warp_mat = apply_affine_transform(img_src_rect, t_src_rect, t_dst_rect, size)
+  img_dst_rect = img_dst_rect * mask
+
+  img_dst[r_dst[1]:r_dst[1]+r_dst[3], r_dst[0]:r_dst[0]+r_dst[2]] = img_dst[r_dst[1]:r_dst[1]+r_dst[3], r_dst[0]:r_dst[0]+r_dst[2]] * ((1.0, 1.0, 1.0) - mask)
+  img_dst[r_dst[1]:r_dst[1]+r_dst[3], r_dst[0]:r_dst[0]+r_dst[2]] = img_dst[r_dst[1]:r_dst[1]+r_dst[3], r_dst[0]:r_dst[0]+r_dst[2]] + img_dst_rect
+
+  return warp_mat
