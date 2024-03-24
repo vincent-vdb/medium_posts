@@ -1,11 +1,15 @@
-import mediapipe as mp
-import cv2
-import math
-import numpy as np
-import utils
 import csv
+import math
 import time
 from typing import Optional
+
+import cv2
+import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+import numpy as np
+
+import utils
 
 
 class FaceFilter:
@@ -303,30 +307,36 @@ class FaceFilter:
         Returns:
             Optional[list[tuple[int, int]]]: A list of relevant landmarks or 0 if no face is detected.
         """
-        mp_face_mesh = mp.solutions.face_mesh
+        base_options = python.BaseOptions(model_asset_path='face_landmarker_v2_with_blendshapes.task')
+        options = vision.FaceLandmarkerOptions(
+            base_options=base_options,
+            output_face_blendshapes=True,
+            output_facial_transformation_matrixes=True,
+            num_faces=1,
+        )
+        detector = vision.FaceLandmarker.create_from_options(options)
         height, width = img.shape[:-1]
 
-        with mp_face_mesh.FaceMesh(max_num_faces=1, static_image_mode=True, min_detection_confidence=0.5) as face_mesh:
-            results = face_mesh.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            if not results.multi_face_landmarks:
-                print('No face detected')
-                return None
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        results = detector.detect(mp_image)
+        if not results.face_landmarks:
+            print('No face detected')
+            return None
 
-            for face_landmarks in results.multi_face_landmarks:
-                values = np.array(face_landmarks.landmark)
-                face_keypnts = np.zeros((len(values), 2))
+        for face_landmarks in results.face_landmarks:
 
-                for idx, value in enumerate(values):
-                    face_keypnts[idx][0] = value.x
-                    face_keypnts[idx][1] = value.y
+            face_keypnts = []
+            for normalized_landmark in face_landmarks:
+                face_keypnts.append([normalized_landmark.x, normalized_landmark.y])
 
-                face_keypnts = face_keypnts * (width, height)
-                face_keypnts = face_keypnts.astype('int')
+            face_keypnts = np.array(face_keypnts)
+            face_keypnts = face_keypnts * (width, height)
+            face_keypnts = face_keypnts.astype('int')
 
-                relevant_keypnts = []
-                for i in self.selected_keypoint_indices:
-                    relevant_keypnts.append(face_keypnts[i])
-                return relevant_keypnts
+            relevant_keypnts = []
+            for i in self.selected_keypoint_indices:
+                relevant_keypnts.append(face_keypnts[i])
+            return relevant_keypnts
         return None
 
     def run(self) -> None:
