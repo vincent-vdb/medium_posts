@@ -59,14 +59,14 @@ class FaceFilter:
         """
         filters = self.filters_config[filter_name]
         multi_filter_runtime = []
-        for filter in filters:
+        for curr_filter in filters:
             temp_dict = {}
-            img_src, img_src_alpha = self.load_filter_img(filter['path'], filter['has_alpha'])
+            img_src, img_src_alpha = self.load_filter_img(curr_filter['path'], curr_filter['has_alpha'])
 
             temp_dict['img'] = img_src
             temp_dict['img_a'] = img_src_alpha
 
-            points = self.load_landmarks(filter['anno_path'])
+            points = self.load_landmarks(curr_filter['anno_path'])
             temp_dict['points'] = points
 
             indexes = np.arange(len(points)).reshape(-1, 1)
@@ -313,7 +313,7 @@ class FaceFilter:
             if self.display_face_points:
                 self.visualize_face_points(frame, points_dst)
 
-            for idx, filter in enumerate(self.filters):
+            for idx in range(len(self.filters)):
                 filter_run = self.multi_filter_runtime[idx]
                 img_src, points_src, img_src_alpha = filter_run['img'], filter_run['points'], filter_run['img_a']
                 output = self.apply_morph_filter(frame, img_src, img_src_alpha, filter_run, points_dst)
