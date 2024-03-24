@@ -26,11 +26,11 @@ class FaceFilter:
             'multicolor':
                 [{'path': "assets/multicolor_transparent.png",
                   'anno_path': "assets/multicolor_labels.csv",
-                  'morph': True, 'animated': False, 'has_alpha': True}],
+                  'has_alpha': True}],
             'anonymous':
                 [{'path': "assets/anonymous_mask.png",
                   'anno_path': "assets/anonymous_labels.csv",
-                  'morph': True, 'animated': False, 'has_alpha': True}],
+                  'has_alpha': True}],
         }
         self.iter_filter_keys = iter(self.filters_config.keys())
         self.filters, self.multi_filter_runtime = self.load_filter(next(self.iter_filter_keys))
@@ -61,32 +61,24 @@ class FaceFilter:
         multi_filter_runtime = []
         for filter in filters:
             temp_dict = {}
-
             img_src, img_src_alpha = self.load_filter_img(filter['path'], filter['has_alpha'])
 
             temp_dict['img'] = img_src
             temp_dict['img_a'] = img_src_alpha
 
             points = self.load_landmarks(filter['anno_path'])
-
             temp_dict['points'] = points
 
-            if filter['morph']:
-                indexes = np.arange(len(points)).reshape(-1, 1)
-                landmarks = [points[str(i)] for i in range(len(indexes))]
-                rect = (0, 0, img_src.shape[1], img_src.shape[0])
-                dt = utils.calculate_delaunay_triangles(rect, landmarks)
+            indexes = np.arange(len(points)).reshape(-1, 1)
+            landmarks = [points[str(i)] for i in range(len(indexes))]
+            rect = (0, 0, img_src.shape[1], img_src.shape[0])
+            dt = utils.calculate_delaunay_triangles(rect, landmarks)
+            temp_dict['landmarks'] = landmarks
+            temp_dict['indexes'] = indexes
+            temp_dict['dt'] = dt
 
-                temp_dict['landmarks'] = landmarks
-                temp_dict['indexes'] = indexes
-                temp_dict['dt'] = dt
-
-                if len(dt) == 0:
-                    continue
-
-            if filter['animated']:
-                filter_cap = cv2.VideoCapture(filter['path'])
-                temp_dict['cap'] = filter_cap
+            if len(dt) == 0:
+                continue
 
             multi_filter_runtime.append(temp_dict)
 
@@ -240,45 +232,6 @@ class FaceFilter:
         temp_dst = np.multiply(frame, (mask_dst * (1.0 / 255)))
         return temp_src + temp_dst
 
-    @staticmethod
-    def apply_similarity_transform(
-            frame: np.ndarray,
-            img_src: np.ndarray,
-            img_src_alpha: np.ndarray,
-            points_src: dict[str, tuple[int, int]],
-            points_dst: list[tuple[int, int]]
-    ) -> np.ndarray:
-        """
-        Applies a similarity transform to the frame based on source and destination points.
-
-        Args:
-            frame (np.ndarray): The current video frame.
-            img_src (np.ndarray): Source image for the filter.
-            img_src_alpha (np.ndarray): Alpha channel of the source image.
-            points_src (dict[str, tuple[int, int]]): Source points for the transform.
-            points_dst (list[tuple[int, int]]): Destination points for the transform.
-
-        Returns:
-            np.ndarray: The frame with the similarity transform applied.
-        """
-        dst_points = [
-            points_dst[int(list(points_src.keys())[0])],
-            points_dst[int(list(points_src.keys())[16])],
-            points_dst[int(list(points_src.keys())[71])],
-        ]
-        tform = utils.similarity_transform(
-            [list(points_src.values())[0], list(points_src.values())[16], list(points_src.values())[71]],
-            dst_points
-        )
-        trans_img = cv2.warpAffine(img_src, tform, (frame.shape[1], frame.shape[0]))
-        trans_alpha = cv2.warpAffine(img_src_alpha, tform, (frame.shape[1], frame.shape[0]))
-        mask_src = cv2.merge((trans_alpha, trans_alpha, trans_alpha))
-        mask_src = cv2.GaussianBlur(mask_src, (3, 3), 10)
-        mask_dst = np.array([255.0, 255.0, 255.0]) - mask_src
-        temp_src = np.multiply(trans_img, (mask_src * (1.0 / 255)))
-        temp_dst = np.multiply(frame, (mask_dst * (1.0 / 255)))
-        return temp_src + temp_dst
-
     def add_fps_text(self, output: np.ndarray) -> np.ndarray:
         """
         Adds FPS text to the output frame.
@@ -363,12 +316,7 @@ class FaceFilter:
             for idx, filter in enumerate(self.filters):
                 filter_run = self.multi_filter_runtime[idx]
                 img_src, points_src, img_src_alpha = filter_run['img'], filter_run['points'], filter_run['img_a']
-
-                if filter['morph']:
-                    output = self.apply_morph_filter(frame, img_src, img_src_alpha, filter_run, points_dst)
-                else:
-                    output = self.apply_similarity_transform(frame, img_src, img_src_alpha, points_src, points_dst)
-
+                output = self.apply_morph_filter(frame, img_src, img_src_alpha, filter_run, points_dst)
                 output = self.add_fps_text(output)
                 cv2.imshow("Face Filter", output)
 
@@ -380,8 +328,3 @@ class FaceFilter:
 
         cap.release()
         cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    face_filter = FaceFilter()
-    face_filter.run()

@@ -1,4 +1,3 @@
-import math
 import cv2
 import numpy as np
 from typing import Tuple, List
@@ -18,38 +17,6 @@ def constrain_point(p: Tuple[int, int], w: int, h: int) -> Tuple[int, int]:
   """
   constrained_point = (min(max(p[0], 0), w - 1), min(max(p[1], 0), h - 1))
   return constrained_point
-
-
-def similarity_transform(in_points: np.ndarray, out_points: np.ndarray) -> np.ndarray:
-  """
-  Compute similarity transform given two sets of two points. OpenCV requires 3 pairs of corresponding points.
-  We are faking the third one.
-
-  Args:
-    in_points: Input points for the transformation.
-    out_points: Output points for the transformation.
-
-  Returns:
-    The transformation matrix.
-  """
-  s60 = math.sin(60 * math.pi / 180)
-  c60 = math.cos(60 * math.pi / 180)
-
-  in_pts = np.copy(in_points).tolist()
-  out_pts = np.copy(out_points).tolist()
-
-  xin = c60 * (in_pts[0][0] - in_pts[1][0]) - s60 * (in_pts[0][1] - in_pts[1][1]) + in_pts[1][0]
-  yin = s60 * (in_pts[0][0] - in_pts[1][0]) + c60 * (in_pts[0][1] - in_pts[1][1]) + in_pts[1][1]
-
-  in_pts.append([int(xin), int(yin)])
-
-  xout = c60 * (out_pts[0][0] - out_pts[1][0]) - s60 * (out_pts[0][1] - out_pts[1][1]) + out_pts[1][0]
-  yout = s60 * (out_pts[0][0] - out_pts[1][0]) + c60 * (out_pts[0][1] - out_pts[1][1]) + out_pts[1][1]
-
-  out_pts.append([int(xout), int(yout)])
-
-  matrix, _ = cv2.estimateAffinePartial2D(np.array([in_pts]), np.array([out_pts]))
-  return matrix
 
 
 def rect_contains(rect: Tuple[int, int, int, int], point: Tuple[int, int]) -> bool:
