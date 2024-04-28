@@ -46,6 +46,15 @@ class FaceFilter:
             373, 380, 61, 40, 39, 0, 269, 270, 291, 321, 405, 17, 181, 91, 78, 81, 13, 311, 306, 402, 14, 178, 162, 54,
             67, 10,297, 284, 389,
         ]
+        self.is_first_frame = True
+        base_options = python.BaseOptions(model_asset_path='face_landmarker_v2_with_blendshapes.task')
+        options = vision.FaceLandmarkerOptions(
+            base_options=base_options,
+            output_face_blendshapes=True,
+            output_facial_transformation_matrixes=True,
+            num_faces=1,
+        )
+        self.detector = vision.FaceLandmarker.create_from_options(options)
 
     def load_filter(self, filter_name: str = "anonymous") -> tuple:
         """
@@ -135,20 +144,19 @@ class FaceFilter:
             img = cv2.merge((b, g, r))
         return img, alpha
 
-    def optical_flow_stabilization(self, frame: np.ndarray, points_dst: list[tuple[int, int]], is_first_frame: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def optical_flow_stabilization(self, frame: np.ndarray, points_dst: list[tuple[int, int]]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Applies optical flow stabilization to the given frame based on destination points.
 
         Args:
             frame (np.ndarray): The current video frame.
             points_dst (list[tuple[int, int]]): Destination points for optical flow stabilization.
-            is_first_frame (bool): Indicates if this is the first frame of the video.
 
         Returns:
             tuple[np.ndarray, np.ndarray, np.ndarray]: The stabilized frame, previous destination points, and previous grayscale image.
         """
         img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        if is_first_frame:
+        if self.is_first_frame:
             self.points_dst_prev = np.array(points_dst, np.float32)
             self.img_gray_prev = np.copy(img_gray)
             return frame, self.points_dst_prev, self.img_gray_prev
@@ -232,7 +240,7 @@ class FaceFilter:
         mask_src = np.zeros((warped_img.shape[0], warped_img.shape[1]), dtype=np.float32)
         mask_src = cv2.merge((mask_src, mask_src, mask_src))
         img_src_alpha_mask = cv2.merge((img_src_alpha, img_src_alpha, img_src_alpha))
-        if self.visualize_face_points:
+        if self.display_face_points:
             self.visualize_triangles(frame, dt, landmarks_dst)
         for i in range(len(dt)):
             t_src, t_dst = [], []
@@ -266,7 +274,7 @@ class FaceFilter:
             output.astype(np.uint8), f"fps: {fps:.2f}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 0, 0), 1
         )
 
-    def get_landmarks(self, img: np.ndarray, detector) -> Optional[list[tuple[int, int]]]:
+    def get_landmarks(self, img: np.ndarray) -> Optional[list[tuple[int, int]]]:
         """
         Extracts relevant landmarks from the given image.
 
@@ -279,7 +287,7 @@ class FaceFilter:
         height, width = img.shape[:-1]
 
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        results = detector.detect(mp_image)
+        results = self.detector.detect(mp_image)
         if not results.face_landmarks:
             print('No face detected')
             return None
@@ -300,42 +308,40 @@ class FaceFilter:
             return relevant_keypnts
         return None
 
+    def apply_on_frame(self, frame: np.array) -> bool:
+        points_dst = self.get_landmarks(frame)
+        if points_dst is None or len(points_dst) != 75:
+            return False
+
+        frame, points_dst_prev, img_gray_prev = self.optical_flow_stabilization(frame, points_dst)
+        self.is_first_frame = False
+
+        if self.display_face_points:
+            self.visualize_face_points(frame, points_dst)
+
+        for idx in range(len(self.filters)):
+            filter_run = self.multi_filter_runtime[idx]
+            img_src, points_src, img_src_alpha = filter_run['img'], filter_run['points'], filter_run['img_a']
+            output = self.apply_morph_filter(frame, img_src, img_src_alpha, filter_run, points_dst)
+            output = self.add_fps_text(output)
+            cv2.imshow("Face Filter", output)
+
+        return True
+
     def run(self) -> None:
         """
         Main loop for running the face filter application.
         """
-        base_options = python.BaseOptions(model_asset_path='face_landmarker_v2_with_blendshapes.task')
-        options = vision.FaceLandmarkerOptions(
-            base_options=base_options,
-            output_face_blendshapes=True,
-            output_facial_transformation_matrixes=True,
-            num_faces=1,
-        )
-        detector = vision.FaceLandmarker.create_from_options(options)
 
         cap = cv2.VideoCapture(self.video)
-        is_first_frame = True
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
 
-            points_dst = self.get_landmarks(frame, detector)
-            if points_dst is None or len(points_dst) != 75:
+            output = self.apply_on_frame(frame)
+            if output is False:
                 continue
-
-            frame, points_dst_prev, img_gray_prev = self.optical_flow_stabilization(frame, points_dst, is_first_frame)
-            is_first_frame = False
-
-            if self.display_face_points:
-                self.visualize_face_points(frame, points_dst)
-
-            for idx in range(len(self.filters)):
-                filter_run = self.multi_filter_runtime[idx]
-                img_src, points_src, img_src_alpha = filter_run['img'], filter_run['points'], filter_run['img_a']
-                output = self.apply_morph_filter(frame, img_src, img_src_alpha, filter_run, points_dst)
-                output = self.add_fps_text(output)
-                cv2.imshow("Face Filter", output)
 
             key = cv2.waitKey(1)
             if key == 27:
