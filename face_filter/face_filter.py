@@ -191,7 +191,22 @@ class FaceFilter:
         cv2.imshow("landmarks", np.flip(viz, axis=1))
 
     @staticmethod
+    def visualize_triangles(frame: np.ndarray, dt: list[tuple[int, int, int]], points: list[tuple[int, int]]) -> None:
+        """
+        Visualizes Delaunay triangles on the given frame.
+
+        Args:
+            frame (np.ndarray): The current video frame.
+            points (list[tuple[int, int]]): Face points to visualize.
+        """
+        viz = np.copy(frame)
+        for triangle in dt:
+            landmarks = np.array([points[i] for i in triangle])
+            viz = cv2.polylines(viz, [landmarks], True, [255, 0, 0], 1)
+        cv2.imshow("triangles", np.flip(viz, axis=1))
+
     def apply_morph_filter(
+            self,
             frame: np.ndarray,
             img_src: np.ndarray,
             img_src_alpha: np.ndarray,
@@ -217,7 +232,8 @@ class FaceFilter:
         mask_src = np.zeros((warped_img.shape[0], warped_img.shape[1]), dtype=np.float32)
         mask_src = cv2.merge((mask_src, mask_src, mask_src))
         img_src_alpha_mask = cv2.merge((img_src_alpha, img_src_alpha, img_src_alpha))
-
+        if self.visualize_face_points:
+            self.visualize_triangles(frame, dt, landmarks_dst)
         for i in range(len(dt)):
             t_src, t_dst = [], []
             for j in range(3):
@@ -250,7 +266,7 @@ class FaceFilter:
             output.astype(np.uint8), f"fps: {fps:.2f}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 0, 0), 1
         )
 
-    def get_landmarks(self, img: np.ndarray) -> Optional[list[tuple[int, int]]]:
+    def get_landmarks(self, img: np.ndarray, detector) -> Optional[list[tuple[int, int]]]:
         """
         Extracts relevant landmarks from the given image.
 
@@ -260,14 +276,6 @@ class FaceFilter:
         Returns:
             Optional[list[tuple[int, int]]]: A list of relevant landmarks or 0 if no face is detected.
         """
-        base_options = python.BaseOptions(model_asset_path='face_landmarker_v2_with_blendshapes.task')
-        options = vision.FaceLandmarkerOptions(
-            base_options=base_options,
-            output_face_blendshapes=True,
-            output_facial_transformation_matrixes=True,
-            num_faces=1,
-        )
-        detector = vision.FaceLandmarker.create_from_options(options)
         height, width = img.shape[:-1]
 
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
@@ -296,6 +304,15 @@ class FaceFilter:
         """
         Main loop for running the face filter application.
         """
+        base_options = python.BaseOptions(model_asset_path='face_landmarker_v2_with_blendshapes.task')
+        options = vision.FaceLandmarkerOptions(
+            base_options=base_options,
+            output_face_blendshapes=True,
+            output_facial_transformation_matrixes=True,
+            num_faces=1,
+        )
+        detector = vision.FaceLandmarker.create_from_options(options)
+
         cap = cv2.VideoCapture(self.video)
         is_first_frame = True
         while True:
@@ -303,7 +320,7 @@ class FaceFilter:
             if not ret:
                 break
 
-            points_dst = self.get_landmarks(frame)
+            points_dst = self.get_landmarks(frame, detector)
             if points_dst is None or len(points_dst) != 75:
                 continue
 
