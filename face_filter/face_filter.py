@@ -1,5 +1,6 @@
 import csv
 import math
+import os
 import time
 from typing import Optional
 
@@ -47,6 +48,8 @@ class FaceFilter:
             67, 10,297, 284, 389,
         ]
         self.is_first_frame = True
+        if not os.path.exists('face_landmarker_v2_with_blendshapes.task'):
+            os.system('wget -O face_landmarker_v2_with_blendshapes.task -q https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task')
         base_options = python.BaseOptions(model_asset_path='face_landmarker_v2_with_blendshapes.task')
         options = vision.FaceLandmarkerOptions(
             base_options=base_options,
