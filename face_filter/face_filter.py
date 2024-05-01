@@ -34,7 +34,7 @@ class FaceFilter:
                   'has_alpha': True}],
         }
         self.iter_filter_keys = iter(self.filters_config.keys())
-        self.filters, self.multi_filter_runtime = self.load_filter(next(self.iter_filter_keys))
+        self.filter, self.multi_filter_runtime = self.load_filter(next(self.iter_filter_keys))
         self.display_face_points = display_face_points
         self.sigma = sigma
         self.timer = time.time()
@@ -69,42 +69,35 @@ class FaceFilter:
         Returns:
             tuple: A tuple containing filter configurations and runtime data.
         """
-        filters = self.filters_config[filter_name]
-        multi_filter_runtime = []
-        for curr_filter in filters:
-            temp_dict = {}
-            img_src, img_src_alpha = self.load_filter_img(curr_filter['path'], curr_filter['has_alpha'])
+        curr_filter = self.filters_config[filter_name][0]
+        multi_filter_runtime = {}
+        img_src, img_src_alpha = self.load_filter_img(curr_filter['path'], curr_filter['has_alpha'])
 
-            temp_dict['img'] = img_src
-            temp_dict['img_a'] = img_src_alpha
+        multi_filter_runtime['img'] = img_src
+        multi_filter_runtime['img_a'] = img_src_alpha
 
-            points = self.load_landmarks(curr_filter['anno_path'])
-            temp_dict['points'] = points
+        points = self.load_landmarks(curr_filter['anno_path'])
+        multi_filter_runtime['points'] = points
 
-            indexes = np.arange(len(points)).reshape(-1, 1)
-            landmarks = [points[str(i)] for i in range(len(indexes))]
-            rect = (0, 0, img_src.shape[1], img_src.shape[0])
-            dt = utils.calculate_delaunay_triangles(rect, landmarks)
-            temp_dict['landmarks'] = landmarks
-            temp_dict['indexes'] = indexes
-            temp_dict['dt'] = dt
+        indexes = np.arange(len(points)).reshape(-1, 1)
+        landmarks = [points[str(i)] for i in range(len(indexes))]
+        rect = (0, 0, img_src.shape[1], img_src.shape[0])
+        dt = utils.calculate_delaunay_triangles(rect, landmarks)
+        multi_filter_runtime['landmarks'] = landmarks
+        multi_filter_runtime['indexes'] = indexes
+        multi_filter_runtime['dt'] = dt
 
-            if len(dt) == 0:
-                continue
-
-            multi_filter_runtime.append(temp_dict)
-
-        return filters, multi_filter_runtime
+        return curr_filter, multi_filter_runtime
 
     def switch_filter(self) -> None:
         """
         Switches to the next filter in the configuration.
         """
         try:
-            self.filters, self.multi_filter_runtime = self.load_filter(next(self.iter_filter_keys))
+            self.filter, self.multi_filter_runtime = self.load_filter(next(self.iter_filter_keys))
         except StopIteration:
             self.iter_filter_keys = iter(self.filters_config.keys())
-            self.filters, self.multi_filter_runtime = self.load_filter(next(self.iter_filter_keys))
+            self.filter, self.multi_filter_runtime = self.load_filter(next(self.iter_filter_keys))
 
     @staticmethod
     def load_landmarks(annotation_file: str) -> dict[str, tuple[int, int]]:
@@ -311,10 +304,10 @@ class FaceFilter:
             return relevant_keypnts
         return None
 
-    def apply_on_frame(self, frame: np.array) -> bool:
+    def apply_on_frame(self, frame: np.array) -> np.array:
         points_dst = self.get_landmarks(frame)
         if points_dst is None or len(points_dst) != 75:
-            return False
+            return None
 
         frame, points_dst_prev, img_gray_prev = self.optical_flow_stabilization(frame, points_dst)
         self.is_first_frame = False
@@ -322,14 +315,9 @@ class FaceFilter:
         if self.display_face_points:
             self.visualize_face_points(frame, points_dst)
 
-        for idx in range(len(self.filters)):
-            filter_run = self.multi_filter_runtime[idx]
-            img_src, points_src, img_src_alpha = filter_run['img'], filter_run['points'], filter_run['img_a']
-            output = self.apply_morph_filter(frame, img_src, img_src_alpha, filter_run, points_dst)
-            output = self.add_fps_text(output)
-            cv2.imshow("Face Filter", output)
-
-        return True
+        output = self.apply_morph_filter(frame, self.multi_filter_runtime['img'], self.multi_filter_runtime['img_a'], self.multi_filter_runtime, points_dst)
+        output = self.add_fps_text(output)
+        return output
 
     def run(self) -> None:
         """
@@ -343,8 +331,9 @@ class FaceFilter:
                 break
 
             output = self.apply_on_frame(frame)
-            if output is False:
+            if output is None:
                 continue
+            cv2.imshow("Face Filter", output)
 
             key = cv2.waitKey(1)
             if key == 27:
