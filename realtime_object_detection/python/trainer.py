@@ -232,7 +232,7 @@ def train_model(
 if __name__ == '__main__':
     # Parse the args
     parser = argparse.ArgumentParser(description='Train blaze face model')
-    parser.add_argument('--dataset', help='the dataset path', type=str, default='/mnt/data_0/datasets/ffhq_itw,youtube_skincare,unsplash,cxlab_hand_al,juggernautxl,zavychromaxl/processed/object_detection/faces_hands_yolo/')
+    parser.add_argument('--dataset', help='the dataset path', type=str, default='./datasets/')
     parser.add_argument('--wandb', help='use wandb (default to none)', action='store_true', default=False)
     parser.add_argument('--batch_size', help='the batch size', type=int, default=256)
     parser.add_argument('--epochs', help='the number of epochs', type=int, default=100)
