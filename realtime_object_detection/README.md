@@ -1,8 +1,8 @@
 # BlazeFace - Real time object detection in browser
 
-This is the code for the Medium Article "".
+This is the code for the Medium Article "BlazeFace: How to Run an Object Detection Model in the Browser".
 
-This has two separate parts:
+This has two separate folders:
 - Model training with python
 - Model inference and demo with javascript
 
@@ -38,6 +38,8 @@ Having a GPU is recommended, but not mandatory. Note that a pretrained TFLite mo
 
 > N.B.: check the help of the `trainer.py` script for more about the available parameters
 
+If during training you encounter the following error `RuntimeError: received 0 items of ancdata`,
+just run `ulimit -n 1048576` in your terminal, and then rerun the training script.
 
 ### Convert model to TFLite
 
