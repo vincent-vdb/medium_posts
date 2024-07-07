@@ -5,13 +5,17 @@ function displayBoxes(src, detections, color = [0, 255, 0, 255]) {
     // Compute and display face box
     if (detections !== null) {
         let box = detections.dataSync();
-        let xCrop = Math.floor(box[1]*webcamElement.width);
-        let yCrop = Math.floor(box[0]*webcamElement.height);
-        let wCrop = Math.floor((box[3] - box[1])*webcamElement.width);
-        let hCrop = Math.floor((box[2] - box[0])*webcamElement.height);
-        let corner1 = new cv.Point(xCrop, yCrop);
-        let corner2 = new cv.Point(xCrop + wCrop, yCrop + hCrop);
-        cv.rectangle(src, corner1, corner2, color, 2);
+        console.log('box', box);
+        for (let i = 0; i < box.length / 4; i++)
+        {
+            let xCrop = Math.floor(box[4*i + 1]*webcamElement.width);
+            let yCrop = Math.floor(box[4*i]*webcamElement.height);
+            let wCrop = Math.floor((box[4*i + 3] - box[4*i + 1])*webcamElement.width);
+            let hCrop = Math.floor((box[4*i + 2] - box[4*i])*webcamElement.height);
+            let corner1 = new cv.Point(xCrop, yCrop);
+            let corner2 = new cv.Point(xCrop + wCrop, yCrop + hCrop);
+            cv.rectangle(src, corner1, corner2, color, 2);
+        }
     }
 }
 
