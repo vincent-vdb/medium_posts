@@ -15,7 +15,6 @@ from torchvision.utils import make_grid, draw_bounding_boxes
 from torchvision import transforms
 import torchvision
 import tqdm
-import wandb
 
 from utils import Detect, MultiBoxLoss, od_collate_fn
 from blazeface import BlazeFace
@@ -35,14 +34,13 @@ class ModelParameters:
     blazeface_channels: int = 32
     focal_loss: bool = False
     model_path: str = 'weights/blazeface128.pt'
-    use_wandb: bool = False
     augmentation: dict = None
 
 
 class MyDataset(torch.utils.data.Dataset):
     def __init__(self, labels_path, image_size: int, augment: A.Compose = None):
         self.labels_path = labels_path
-        self.labels = list(sorted(glob(f'{labels_path}/*/*')))
+        self.labels = list(sorted(glob(f'{labels_path}/*')))
         self.labels = [x for x in self.labels if os.stat(x).st_size != 0]
         self.augment = augment
         self.transform = transforms.Compose([
@@ -56,6 +54,11 @@ class MyDataset(torch.utils.data.Dataset):
         # load images and masks
         img_path = self.labels[idx].replace('labels', 'images')[:-3] + 'jpg'
         img = plt.imread(img_path)
+        if len(img.shape) == 2 or img.shape[2] == 1:
+            # Handle grayscale images
+            img = np.stack((img,)*3, axis=-1)
+        if img.shape[2] == 4:
+            img = img[:, :, :3]
         rescale_output = self.resize_and_pad(img, self.image_size)
         img = rescale_output['image']
         annotations = pd.read_csv(self.labels[idx], header=None, sep=' ')
@@ -73,11 +76,12 @@ class MyDataset(torch.utils.data.Dataset):
         x2 = np.expand_dims(x2, 1)
         y1 = np.expand_dims(y1, 1)
         y2 = np.expand_dims(y2, 1)
-        target = np.concatenate([x1, y1, x2, y2, labels.reshape(-1, 1)], axis=1)
+        target = np.concatenate([x1, y1, x2, y2, labels.reshape(-1, 1)], axis=1).clip(0., 1.)
         if self.augment is not None:
             augmented = self.augment(image=img, bboxes=target)
             img = augmented['image']
             target = np.array(augmented['bboxes'])
+
         return self.transform(img.copy()), np.clip(target, 0, 1)
 
     def __len__(self):
@@ -112,7 +116,7 @@ def compute_image_with_boxes_grid(postprocessor, preds, labels, dbox_list, image
     # Compute postprocessing for valid
     detections = postprocessor.forward((preds[:, :, :4], preds[:, :, 4:], dbox_list))
     # Make a grid image with bounding boxes
-    classes_names = ['face', 'hand']
+    classes_names = ['face']
     imgs_with_boxes = []
     for i in range(min(len(images), 32)):
         if len(detections[i, :, 0] > model_params.detection_threshold) > 0:
@@ -152,14 +156,6 @@ def train_model(
         device,
 ):
     net = net.to(device)
-    if model_params.use_wandb:
-        postprocessor = Detect()
-        run = wandb.init(
-            project='BlazeFace',
-            config={
-                'model_params': model_params,
-            }
-        )
 
     for epoch in range(model_params.epochs):
         curr_lr = scheduler.optimizer.param_groups[0]['lr']
@@ -179,8 +175,6 @@ def train_model(
             running_loss += loss.item()
             running_loc_loss += loss_l.item()
             running_class_loss += loss_c.item()
-        if model_params.use_wandb:
-            train_grid_images = compute_image_with_boxes_grid(postprocessor, outputs, targets, net.dbox_list, images)
         # Eval
         net.eval()
         val_loss = 0.
@@ -204,36 +198,16 @@ def train_model(
         val_loc_loss = val_loc_loss / len(dataloaders_dict['val'])
         val_class_loss = val_class_loss / len(dataloaders_dict['val'])
         print(f'[{epoch + 1}] train loss: {train_loss:.3f} | val loss: {val_loss:.3f}')
+        print(f'train loc loss: {train_loc_loss:.3f} | train class loss: {train_class_loss:.3f}')
         scheduler.step(val_loss)
         # Save model
         torch.save(net.state_dict(), model_params.model_path)
 
-        if model_params.use_wandb:
-            # Compute validation images with boxes
-            val_grid_images = compute_image_with_boxes_grid(postprocessor, outputs, targets, net.dbox_list, images)
-            # Log to W&B
-            wandb.log({
-                'train_results': wandb.Image(train_grid_images),
-                'val_results': wandb.Image(val_grid_images),
-                'train_loss': train_loss,
-                'train_loc_loss': train_loc_loss,
-                'train_class_loss': train_class_loss,
-                'val_loss': val_loss,
-                'val_loc_loss': val_loc_loss,
-                'val_class_loss': val_class_loss,
-                'lr': curr_lr,
-            })
-            # Log model
-            run.log_model(name='blazeface', path=model_params.model_path)
-
-    if model_params.use_wandb:
-        run.finish()
 
 if __name__ == '__main__':
     # Parse the args
     parser = argparse.ArgumentParser(description='Train blaze face model')
-    parser.add_argument('--dataset', help='the dataset path', type=str, default='./datasets/')
-    parser.add_argument('--wandb', help='use wandb (default to none)', action='store_true', default=False)
+    parser.add_argument('--dataset', help='the dataset path', type=str, default='./dataset/')
     parser.add_argument('--batch_size', help='the batch size', type=int, default=256)
     parser.add_argument('--epochs', help='the number of epochs', type=int, default=100)
     parser.add_argument('--lr', help='the initial learning rate', type=float, default=0.001)
@@ -251,7 +225,7 @@ if __name__ == '__main__':
         image_size=args.img_size,
         detection_threshold=args.det_threshold,
         focal_loss=args.focal,
-        use_wandb=args.wandb,
+        # use_wandb=args.wandb,
         blazeface_channels=args.channels,
     )
 
@@ -281,8 +255,8 @@ if __name__ == '__main__':
 
     os.makedirs("weights", exist_ok=True)
     # Data loaders
-    train_dataset = MyDataset(args.dataset + '/train/labels/', image_size=model_params.image_size, augment=augment)
-    valid_dataset = MyDataset(args.dataset + '/validation/labels/', image_size=model_params.image_size)
+    train_dataset = MyDataset(args.dataset + '/labels/train/', image_size=model_params.image_size, augment=augment)
+    valid_dataset = MyDataset(args.dataset + '/labels/val/', image_size=model_params.image_size)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.batch_size,

@@ -92,7 +92,7 @@ class BlazeFace(nn.Module):
     def __init__(self, back_model=False):
         super(BlazeFace, self).__init__()
 
-        self.num_classes = 3
+        self.num_classes = 1
         self.num_anchors = 896
         self.num_coords = 4
         self.score_clipping_thresh = 100.0
