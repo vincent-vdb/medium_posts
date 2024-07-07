@@ -39,7 +39,7 @@ const userAgent = navigator.userAgent;
 var canvasElement = document.getElementById("canvas");
 var canvasCtx = canvasElement.getContext("2d");
 // Load the models
-var blazeFace = await BlazeFaceDetector.instantiateDetector("./assets/blazeface.tflite", anchors_blazeface, 1., 1., 0.55, 0.7, 2);
+var blazeFace = await BlazeFaceDetector.instantiateDetector("./assets/blazeface.tflite", anchors_blazeface, 1., 1., 0.6, 0.6, 2);
 
 var time = Date.now();
 var fps = 0;
@@ -98,7 +98,7 @@ function processNextTensor() {
   }
   processing = false;
   // Display information
-  // document.getElementById('console').innerText = `fps: ${Math.floor(fps*10)/10}`;
+  document.getElementById('console').innerText = `fps: ${Math.floor(fps*10)/10}`;
   fps = (0.8*fps + 0.2*1000 / (Date.now() - time));
   time = Date.now();
 }
