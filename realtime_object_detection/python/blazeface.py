@@ -1,8 +1,25 @@
-# Code originally from https://github.com/hollance/BlazeFace-PyTorch
+from dataclasses import dataclass, field
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+@dataclass
+class ModelParameters:
+    """Class with all the model parameters"""
+    batch_size: int = 256
+    lr: float = 0.001
+    scheduler_type: str = 'ReduceLROnPlateau'
+    lr_scheduler_patience: int = 10
+    epochs: int = 100
+    classes: list = field(default_factory=lambda: ['face'])
+    image_size: int = 128
+    detection_threshold: float = 0.5
+    blazeface_channels: int = 32
+    focal_loss: bool = False
+    model_path: str = 'weights/blazeface.pt'
+    augmentation: dict = None
 
 
 class BlazeBlock(nn.Module):
@@ -69,25 +86,6 @@ class FinalBlazeBlock(nn.Module):
 
 
 class BlazeFace(nn.Module):
-    """The BlazeFace face detection model from MediaPipe.
-
-    The version from MediaPipe is simpler than the one in the paper;
-    it does not use the "double" BlazeBlocks.
-
-    Because we won't be training this model, it doesn't need to have
-    batchnorm layers. These have already been "folded" into the conv
-    weights by TFLite.
-
-    The conversion to PyTorch is fairly straightforward, but there are
-    some small differences between TFLite and PyTorch in how they handle
-    padding on conv layers with stride 2.
-
-    This version works on batches, while the MediaPipe version can only
-    handle a single image at a time.
-
-    Based on code from https://github.com/tkat0/PyTorch_BlazeFace/ and
-    https://github.com/google/mediapipe/
-    """
 
     def __init__(self, back_model=False):
         super(BlazeFace, self).__init__()

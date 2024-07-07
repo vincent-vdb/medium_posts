@@ -1,5 +1,4 @@
 import argparse
-from dataclasses import dataclass, field
 from glob import glob
 import os
 
@@ -16,25 +15,8 @@ from torchvision import transforms
 import torchvision
 import tqdm
 
-from utils import Detect, MultiBoxLoss, od_collate_fn
-from blazeface import BlazeFace
-
-
-@dataclass
-class ModelParameters:
-    """Class with all the model parameters"""
-    batch_size: int = 32
-    lr: float = 0.001
-    scheduler_type: str = 'ReduceLROnPlateau'
-    lr_scheduler_patience: int = 10
-    epochs: int = 100
-    classes: list = field(default_factory=lambda: ['face'])
-    image_size: int = 128
-    detection_threshold: float = 0.5
-    blazeface_channels: int = 32
-    focal_loss: bool = False
-    model_path: str = 'weights/blazeface128.pt'
-    augmentation: dict = None
+from utils import MultiBoxLoss, od_collate_fn
+from blazeface import BlazeFace, ModelParameters
 
 
 class MyDataset(torch.utils.data.Dataset):
@@ -158,7 +140,6 @@ def train_model(
     net = net.to(device)
 
     for epoch in range(model_params.epochs):
-        curr_lr = scheduler.optimizer.param_groups[0]['lr']
         # Train
         running_loss = 0.
         running_loc_loss = 0.
@@ -195,8 +176,6 @@ def train_model(
         train_loc_loss = running_loc_loss / len(dataloaders_dict['train'])
         train_class_loss = running_class_loss / len(dataloaders_dict['train'])
         val_loss = val_loss / len(dataloaders_dict['val'])
-        val_loc_loss = val_loc_loss / len(dataloaders_dict['val'])
-        val_class_loss = val_class_loss / len(dataloaders_dict['val'])
         print(f'[{epoch + 1}] train loss: {train_loss:.3f} | val loss: {val_loss:.3f}')
         print(f'train loc loss: {train_loc_loss:.3f} | train class loss: {train_class_loss:.3f}')
         scheduler.step(val_loss)
@@ -209,7 +188,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train blaze face model')
     parser.add_argument('--dataset', help='the dataset path', type=str, default='./dataset/')
     parser.add_argument('--batch_size', help='the batch size', type=int, default=256)
-    parser.add_argument('--epochs', help='the number of epochs', type=int, default=100)
+    parser.add_argument('--epochs', help='the number of epochs', type=int, default=10)
     parser.add_argument('--lr', help='the initial learning rate', type=float, default=0.001)
     parser.add_argument('--det_threshold', help='the detection threshold', type=float, default=0.5)
     parser.add_argument('--img_size', help='the resized image size', type=int, default=128)
@@ -225,7 +204,6 @@ if __name__ == '__main__':
         image_size=args.img_size,
         detection_threshold=args.det_threshold,
         focal_loss=args.focal,
-        # use_wandb=args.wandb,
         blazeface_channels=args.channels,
     )
 
