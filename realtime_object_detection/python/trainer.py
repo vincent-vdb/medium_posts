@@ -20,7 +20,7 @@ from blazeface import BlazeFace, ModelParameters
 
 
 class MyDataset(torch.utils.data.Dataset):
-    def __init__(self, labels_path, image_size: int, augment: A.Compose = None):
+    def __init__(self, labels_path: str, image_size: int, augment: A.Compose = None):
         self.labels_path = labels_path
         self.labels = list(sorted(glob(f'{labels_path}/*')))
         self.labels = [x for x in self.labels if os.stat(x).st_size != 0]
@@ -32,7 +32,7 @@ class MyDataset(torch.utils.data.Dataset):
         ])
         self.image_size = image_size
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         # load images and masks
         img_path = self.labels[idx].replace('labels', 'images')[:-3] + 'jpg'
         img = plt.imread(img_path)
@@ -40,10 +40,25 @@ class MyDataset(torch.utils.data.Dataset):
             # Handle grayscale images
             img = np.stack((img,)*3, axis=-1)
         if img.shape[2] == 4:
+            # Handle alpha
             img = img[:, :, :3]
         rescale_output = self.resize_and_pad(img, self.image_size)
         img = rescale_output['image']
-        annotations = pd.read_csv(self.labels[idx], header=None, sep=' ')
+        # Read and convert labels
+        target = self.read_and_convert_labels(self.labels[idx], rescale_output)
+        if self.augment is not None:
+            augmented = self.augment(image=img, bboxes=target)
+            img = augmented['image']
+            target = np.array(augmented['bboxes'])
+
+        return self.transform(img.copy()), np.clip(target, 0, 1)
+
+    def __len__(self):
+        return len(self.labels)
+
+    @staticmethod
+    def read_and_convert_labels(labels_idx, rescale_output):
+        annotations = pd.read_csv(labels_idx, header=None, sep=' ')
         labels = annotations.values[:, 0]
         yolo_bboxes = annotations.values[:, 1:]
         cx = yolo_bboxes[:, 0]
@@ -59,15 +74,7 @@ class MyDataset(torch.utils.data.Dataset):
         y1 = np.expand_dims(y1, 1)
         y2 = np.expand_dims(y2, 1)
         target = np.concatenate([x1, y1, x2, y2, labels.reshape(-1, 1)], axis=1).clip(0., 1.)
-        if self.augment is not None:
-            augmented = self.augment(image=img, bboxes=target)
-            img = augmented['image']
-            target = np.array(augmented['bboxes'])
-
-        return self.transform(img.copy()), np.clip(target, 0, 1)
-
-    def __len__(self):
-        return len(self.labels)
+        return target
 
     @staticmethod
     def resize_and_pad(img, target_size=128):
