@@ -21,6 +21,12 @@ from blazeface import BlazeFace, ModelParameters
 
 class MyDataset(torch.utils.data.Dataset):
     def __init__(self, labels_path: str, image_size: int, augment: A.Compose = None):
+        """
+        Args:
+            labels_path (str): Path to the labels directory.
+            image_size (int): Size to which images will be resized.
+            augment (A.Compose, optional): Albumentations augmentation pipeline. Defaults to None.
+        """
         self.labels_path = labels_path
         self.labels = list(sorted(glob(f'{labels_path}/*')))
         self.labels = [x for x in self.labels if os.stat(x).st_size != 0]
@@ -32,7 +38,14 @@ class MyDataset(torch.utils.data.Dataset):
         ])
         self.image_size = image_size
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> tuple:
+        """
+        Args:
+            idx (int): Index of the item.
+
+        Returns:
+            tuple: Transformed image and target bounding boxes.
+        """
         # load images and masks
         img_path = self.labels[idx].replace('labels', 'images')[:-3] + 'jpg'
         img = plt.imread(img_path)
@@ -53,11 +66,23 @@ class MyDataset(torch.utils.data.Dataset):
 
         return self.transform(img.copy()), np.clip(target, 0, 1)
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Returns:
+            int: Length of the dataset.
+        """
         return len(self.labels)
 
     @staticmethod
-    def read_and_convert_labels(labels_idx, rescale_output):
+    def read_and_convert_labels(labels_idx: str, rescale_output: dict) -> np.ndarray:
+        """
+        Args:
+            labels_idx (str): Path to the label file.
+            rescale_output (dict): Rescaling output containing ratios and offsets.
+
+        Returns:
+            np.ndarray: Converted target bounding boxes.
+        """
         annotations = pd.read_csv(labels_idx, header=None, sep=' ')
         labels = annotations.values[:, 0]
         yolo_bboxes = annotations.values[:, 1:]
@@ -77,7 +102,15 @@ class MyDataset(torch.utils.data.Dataset):
         return target
 
     @staticmethod
-    def resize_and_pad(img, target_size=128):
+    def resize_and_pad(img: np.ndarray, target_size: int = 128) -> dict:
+        """
+        Args:
+            img (np.ndarray): Input image.
+            target_size (int, optional): Target size for resizing. Defaults to 128.
+
+        Returns:
+            dict: Rescaled image and rescaling parameters.
+        """
         if img.shape[0] > img.shape[1]:
             new_y = target_size
             new_x = int(target_size * img.shape[1] / img.shape[0])
@@ -101,7 +134,18 @@ class MyDataset(torch.utils.data.Dataset):
         return {'image': output_img, 'x_ratio': x_ratio, 'x_offset': x_offset, 'y_ratio': y_ratio, 'y_offset': y_offset}
 
 
-def compute_image_with_boxes_grid(postprocessor, preds, labels, dbox_list, images):
+def compute_image_with_boxes_grid(postprocessor, preds: torch.Tensor, labels: torch.Tensor, dbox_list: list, images: torch.Tensor) -> torch.Tensor:
+    """
+    Args:
+        postprocessor: Postprocessor object for detections.
+        preds (torch.Tensor): Predictions from the model.
+        labels (torch.Tensor): Ground truth labels.
+        dbox_list (list): Default bounding boxes.
+        images (torch.Tensor): Input images.
+
+    Returns:
+        torch.Tensor: Grid of images with bounding boxes.
+    """
     # Compute postprocessing for valid
     detections = postprocessor.forward((preds[:, :, :4], preds[:, :, 4:], dbox_list))
     # Make a grid image with bounding boxes
@@ -136,14 +180,24 @@ def compute_image_with_boxes_grid(postprocessor, preds, labels, dbox_list, image
 
 
 def train_model(
-        net,
-        dataloaders_dict,
-        criterion,
-        optimizer,
-        scheduler,
-        model_params,
-        device,
-):
+        net: torch.nn.Module,
+        dataloaders_dict: dict,
+        criterion: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        scheduler: torch.optim.lr_scheduler._LRScheduler,
+        model_params: ModelParameters,
+        device: torch.device,
+) -> None:
+    """
+    Args:
+        net (torch.nn.Module): The neural network model.
+        dataloaders_dict (dict): Dictionary containing training and validation dataloaders.
+        criterion (torch.nn.Module): Loss function.
+        optimizer (torch.optim.Optimizer): Optimizer.
+        scheduler (torch.optim.lr_scheduler._LRScheduler): Learning rate scheduler.
+        model_params (ModelParameters): Model parameters.
+        device (torch.device): Device to run the model on.
+    """
     net = net.to(device)
 
     for epoch in range(model_params.epochs):
@@ -213,7 +267,6 @@ if __name__ == '__main__':
         focal_loss=args.focal,
         blazeface_channels=args.channels,
     )
-
     augment = A.Compose(
         [
             A.RandomBrightnessContrast(brightness_limit=0.2, always_apply=True),
@@ -237,7 +290,6 @@ if __name__ == '__main__':
         bbox_params=A.BboxParams(format='albumentations')
     )
     model_params.augmentation = augment.to_dict()
-
     os.makedirs("weights", exist_ok=True)
     # Data loaders
     train_dataset = MyDataset(args.dataset + '/labels/train/', image_size=model_params.image_size, augment=augment)
@@ -263,7 +315,6 @@ if __name__ == '__main__':
     else:
         model = BlazeFace()
     model.load_anchors('anchors.npy')
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = MultiBoxLoss(jaccard_thresh=0.5, neg_pos=3, device=device, focal=model_params.focal_loss, dbox_list=model.dbox_list)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)

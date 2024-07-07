@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Tuple
 
 import numpy as np
 import torch
@@ -13,17 +14,26 @@ class ModelParameters:
     scheduler_type: str = 'ReduceLROnPlateau'
     lr_scheduler_patience: int = 10
     epochs: int = 100
-    classes: list = field(default_factory=lambda: ['face'])
+    classes: List[str] = field(default_factory=lambda: ['face'])
     image_size: int = 128
     detection_threshold: float = 0.5
     blazeface_channels: int = 32
     focal_loss: bool = False
     model_path: str = 'weights/blazeface.pt'
-    augmentation: dict = None
+    augmentation: Optional[Dict] = None
 
 
 class BlazeBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3, stride: int = 1) -> None:
+        """
+        Initializes the BlazeBlock.
+
+        Args:
+            in_channels (int): Number of input channels.
+            out_channels (int): Number of output channels.
+            kernel_size (int, optional): Size of the convolution kernel. Defaults to 3.
+            stride (int, optional): Stride of the convolution. Defaults to 1.
+        """
         super(BlazeBlock, self).__init__()
 
         self.stride = stride
@@ -49,7 +59,16 @@ class BlazeBlock(nn.Module):
 
         self.act = nn.ReLU(inplace=True)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of the BlazeBlock.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Output tensor after applying the BlazeBlock.
+        """
         if self.stride == 2:
             h = F.pad(x, (0, 2, 0, 2), "constant", 0)
             x = self.max_pool(x)
@@ -63,7 +82,14 @@ class BlazeBlock(nn.Module):
 
 
 class FinalBlazeBlock(nn.Module):
-    def __init__(self, channels, kernel_size=3):
+    def __init__(self, channels: int, kernel_size: int = 3) -> None:
+        """
+        Initializes the FinalBlazeBlock.
+
+        Args:
+            channels (int): Number of input and output channels.
+            kernel_size (int, optional): Size of the convolution kernel. Defaults to 3.
+        """
         super(FinalBlazeBlock, self).__init__()
         # TFLite uses slightly different padding than PyTorch
         # on the depthwise conv layer when the stride is 2.
@@ -79,7 +105,16 @@ class FinalBlazeBlock(nn.Module):
 
         self.act = nn.ReLU(inplace=True)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of the FinalBlazeBlock.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Output tensor after applying the FinalBlazeBlock.
+        """
         h = F.pad(x, (0, 2, 0, 2), "constant", 0)
 
         return self.act(self.convs(h))
@@ -87,7 +122,13 @@ class FinalBlazeBlock(nn.Module):
 
 class BlazeFace(nn.Module):
 
-    def __init__(self, back_model=False):
+    def __init__(self, back_model: bool = False) -> None:
+        """
+        Initializes the BlazeFace model.
+
+        Args:
+            back_model (bool, optional): Whether to use the back model. Defaults to False.
+        """
         super(BlazeFace, self).__init__()
 
         self.num_classes = 1
@@ -111,7 +152,8 @@ class BlazeFace(nn.Module):
 
         self._define_layers()
 
-    def _define_layers(self):
+    def _define_layers(self) -> None:
+        """Defines the layers of the BlazeFace model."""
         if self.back_model:
             self.backbone = nn.Sequential(
                 nn.Conv2d(in_channels=3, out_channels=24, kernel_size=5, stride=2, padding=0, bias=True),
@@ -186,7 +228,16 @@ class BlazeFace(nn.Module):
             self.regressor_8 = nn.Conv2d(88, 8, 1, bias=True)
             self.regressor_16 = nn.Conv2d(96, 24, 1, bias=True)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of the BlazeFace model.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Output tensor after applying the BlazeFace model.
+        """
         x = F.pad(x, (1, 2, 1, 2), "constant", 0)
 
         b = x.shape[0]  # batch size, needed for reshaping later
@@ -221,15 +272,32 @@ class BlazeFace(nn.Module):
         return torch.cat([r, c], dim=2)
         #return [r, c]
 
-    def _device(self):
-        """Which device (CPU or GPU) is being used by this model?"""
+    def _device(self) -> torch.device:
+        """
+        Which device (CPU or GPU) is being used by this model?
+
+        Returns:
+            torch.device: The device being used by this model.
+        """
         return self.classifier_8.weight.device
 
-    def load_weights(self, path):
+    def load_weights(self, path: str) -> None:
+        """
+        Loads the weights from a file.
+
+        Args:
+            path (str): Path to the weights file.
+        """
         self.load_state_dict(torch.load(path))
         self.eval()
 
-    def load_anchors(self, path):
+    def load_anchors(self, path: str) -> None:
+        """
+        Loads the anchors from a file.
+
+        Args:
+            path (str): Path to the anchors file.
+        """
         self.anchors = torch.tensor(np.load(path), dtype=torch.float32, device=self._device())
         self.dbox_list = self.anchors
         assert (self.anchors.ndimension() == 2)

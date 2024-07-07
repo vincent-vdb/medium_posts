@@ -9,7 +9,16 @@ import onnx_tf
 from blazeface import BlazeFace, ModelParameters
 
 
-def fix_onnx_naming(onnx_model, model_name):
+def fix_onnx_naming(onnx_model: onnx.ModelProto, model_name: str) -> onnx.ModelProto:
+    """Fixes the naming of the ONNX model inputs and nodes.
+
+    Args:
+        onnx_model (onnx.ModelProto): The ONNX model to be fixed.
+        model_name (str): The name of the model.
+
+    Returns:
+        onnx.ModelProto: The fixed ONNX model.
+    """
     # Define a mapping from old names to new names
     name_map = {"x.1": "x_1"}
 
@@ -39,8 +48,14 @@ def fix_onnx_naming(onnx_model, model_name):
     onnx.save(onnx_model, f'{model_name}.onnx')
     return onnx_model
 
-def convert_torch_to_tflite(torch_path, model_name, model_params):
+def convert_torch_to_tflite(torch_path: str, model_name: str, model_params: ModelParameters) -> None:
+    """Converts a PyTorch model to TFLite format.
 
+    Args:
+        torch_path (str): Path to the input PyTorch model.
+        model_name (str): Output filename root.
+        model_params (ModelParameters): Model parameters.
+    """
     if model_params.image_size == 256:
         model = BlazeFace(back_model=True)
     else:

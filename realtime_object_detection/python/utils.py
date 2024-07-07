@@ -5,7 +5,15 @@ import torch.nn as nn
 import torchvision
 
 
-def od_collate_fn(batch):
+def od_collate_fn(batch: list) -> tuple:
+    """Collate function for object detection.
+
+    Args:
+        batch (list): List of tuples containing images and targets.
+
+    Returns:
+        tuple: Batch of images and targets.
+    """
     imgs = []
     targets = []
     for sample in batch:
@@ -16,19 +24,20 @@ def od_collate_fn(batch):
     return imgs, targets
 
 
-def encode(matched, priors, variances):
+def encode(matched: torch.Tensor, priors: torch.Tensor, variances: list) -> torch.Tensor:
     """Encode the variances from the priorbox layers into the ground truth boxes
     we have matched (based on jaccard overlap) with the prior boxes.
-    Args:
-        matched: (tensor) Coords of ground truth for each prior in point-form
-            Shape: [num_priors, 4].
-        priors: (tensor) Prior boxes in center-offset form
-            Shape: [num_priors,4].
-        variances: (list[float]) Variances of priorboxes
-    Return:
-        encoded boxes (tensor), Shape: [num_priors, 4]
-    """
 
+    Args:
+        matched (torch.Tensor): Coords of ground truth for each prior in point-form.
+            Shape: [num_priors, 4].
+        priors (torch.Tensor): Prior boxes in center-offset form.
+            Shape: [num_priors, 4].
+        variances (list[float]): Variances of priorboxes.
+
+    Returns:
+        torch.Tensor: Encoded boxes, Shape: [num_priors, 4].
+    """
     # dist b/t match center and prior's center
     g_cxcy = (matched[:, :2] + matched[:, 2:])/2 - priors[:, :2]
     # encode variance
@@ -39,17 +48,21 @@ def encode(matched, priors, variances):
     # return target for smooth_l1_loss
     return torch.cat([g_cxcy, g_wh], 1)  # [num_priors,4]
 
-def jaccard(box_a, box_b):
-    """Compute the jaccard overlap of two sets of boxes.  The jaccard overlap
-    is simply the intersection over union of two boxes.  Here we operate on
+
+def jaccard(box_a: torch.Tensor, box_b: torch.Tensor) -> torch.Tensor:
+    """Compute the jaccard overlap of two sets of boxes. The jaccard overlap
+    is simply the intersection over union of two boxes. Here we operate on
     ground truth boxes and default boxes.
+
     E.g.:
         A ∩ B / A ∪ B = A ∩ B / (area(A) + area(B) - A ∩ B)
+
     Args:
-        box_a: (tensor) Ground truth bounding boxes, Shape: [num_objects,4]
-        box_b: (tensor) Prior boxes from priorbox layers, Shape: [num_priors,4]
-    Return:
-        jaccard overlap: (tensor) Shape: [box_a.size(0), box_b.size(0)]
+        box_a (torch.Tensor): Ground truth bounding boxes, Shape: [num_objects, 4].
+        box_b (torch.Tensor): Prior boxes from priorbox layers, Shape: [num_priors, 4].
+
+    Returns:
+        torch.Tensor: Jaccard overlap, Shape: [box_a.size(0), box_b.size(0)].
     """
     inter = intersect(box_a, box_b)
     area_a = ((box_a[:, 2]-box_a[:, 0]) *
@@ -59,28 +72,31 @@ def jaccard(box_a, box_b):
     union = area_a + area_b - inter
     return inter / union  # [A,B]
 
-def point_form(boxes):
-    """ Convert prior_boxes to (xmin, ymin, xmax, ymax)
-    representation for comparison to point form ground truth data.
+
+def point_form(boxes: torch.Tensor) -> torch.Tensor:
+    """Convert prior_boxes to (xmin, ymin, xmax, ymax) representation for comparison
+    to point form ground truth data.
+
     Args:
-        boxes: (tensor) center-size default boxes from priorbox layers.
-    Return:
-        boxes: (tensor) Converted xmin, ymin, xmax, ymax form of boxes.
+        boxes (torch.Tensor): Center-size default boxes from priorbox layers.
+
+    Returns:
+        torch.Tensor: Converted xmin, ymin, xmax, ymax form of boxes.
     """
     return torch.cat((boxes[:, :2] - boxes[:, 2:]/2,     # xmin, ymin
                      boxes[:, :2] + boxes[:, 2:]/2), 1)  # xmax, ymax
 
 
-def intersect(box_a, box_b):
-    """ We resize both tensors to [A,B,2] without new malloc:
-    [A,2] -> [A,1,2] -> [A,B,2]
-    [B,2] -> [1,B,2] -> [A,B,2]
-    Then we compute the area of intersect between box_a and box_b.
+def intersect(box_a: torch.Tensor, box_b: torch.Tensor) -> torch.Tensor:
+    """Resize both tensors to [A, B, 2] without new malloc and compute the area
+    of intersect between box_a and box_b.
+
     Args:
-      box_a: (tensor) bounding boxes, Shape: [A,4].
-      box_b: (tensor) bounding boxes, Shape: [B,4].
-    Return:
-      (tensor) intersection area, Shape: [A,B].
+        box_a (torch.Tensor): Bounding boxes, Shape: [A, 4].
+        box_b (torch.Tensor): Bounding boxes, Shape: [B, 4].
+
+    Returns:
+        torch.Tensor: Intersection area, Shape: [A, B].
     """
     A = box_a.size(0)
     B = box_b.size(0)
@@ -92,22 +108,25 @@ def intersect(box_a, box_b):
     return inter[:, :, 0] * inter[:, :, 1]
 
 
-def match(threshold, truths, priors, variances, labels, loc_t, conf_t, idx):
+def match(threshold: float, truths: torch.Tensor, priors: torch.Tensor, variances: list,
+          labels: torch.Tensor, loc_t: torch.Tensor, conf_t: torch.Tensor, idx: int) -> None:
     """Match each prior box with the ground truth box of the highest jaccard
     overlap, encode the bounding boxes, then return the matched indices
     corresponding to both confidence and location preds.
+
     Args:
-        threshold: (float) The overlap threshold used when mathing boxes.
-        truths: (tensor) Ground truth boxes, Shape: [num_obj, num_priors].
-        priors: (tensor) Prior boxes from priorbox layers, Shape: [n_priors,4].
-        variances: (tensor) Variances corresponding to each prior coord,
+        threshold (float): The overlap threshold used when matching boxes.
+        truths (torch.Tensor): Ground truth boxes, Shape: [num_obj, num_priors].
+        priors (torch.Tensor): Prior boxes from priorbox layers, Shape: [n_priors, 4].
+        variances (list[float]): Variances corresponding to each prior coord,
             Shape: [num_priors, 4].
-        labels: (tensor) All the class labels for the image, Shape: [num_obj].
-        loc_t: (tensor) Tensor to be filled w/ endcoded location targets.
-        conf_t: (tensor) Tensor to be filled w/ matched indices for conf preds.
-        idx: (int) current batch index
-    Return:
-        The matched indices corresponding to 1)location and 2)confidence preds.
+        labels (torch.Tensor): All the class labels for the image, Shape: [num_obj].
+        loc_t (torch.Tensor): Tensor to be filled with encoded location targets.
+        conf_t (torch.Tensor): Tensor to be filled with matched indices for conf preds.
+        idx (int): Current batch index.
+
+    Returns:
+        None
     """
     # jaccard index
     overlaps = jaccard(
@@ -115,9 +134,9 @@ def match(threshold, truths, priors, variances, labels, loc_t, conf_t, idx):
         point_form(priors)
     )
     # (Bipartite Matching)
-    # [1,num_objects] best prior for each ground truth
+    # [1, num_objects] best prior for each ground truth
     best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=True)
-    # [1,num_priors] best ground truth for each prior
+    # [1, num_priors] best ground truth for each prior
     best_truth_overlap, best_truth_idx = overlaps.max(0, keepdim=True)
     best_truth_idx.squeeze_(0)
     best_truth_overlap.squeeze_(0)
@@ -127,15 +146,26 @@ def match(threshold, truths, priors, variances, labels, loc_t, conf_t, idx):
     # ensure every gt matches with its prior of max overlap
     for j in range(best_prior_idx.size(0)):
         best_truth_idx[best_prior_idx[j]] = j
-    matches = truths[best_truth_idx]          # Shape: [num_priors,4]
+    matches = truths[best_truth_idx]          # Shape: [num_priors, 4]
     conf = labels[best_truth_idx] + 1         # Shape: [num_priors]
     conf[best_truth_overlap < threshold] = 0  # label as background
     loc = encode(matches, priors, variances)
-    loc_t[idx] = loc    # [num_priors,4] encoded offsets to learn
+    loc_t[idx] = loc    # [num_priors, 4] encoded offsets to learn
     conf_t[idx] = conf  # [num_priors] top class label for each prior
 
+
 class MultiBoxLoss(nn.Module):
-    def __init__(self, jaccard_thresh=0.5, neg_pos=3, focal=False, device='cpu', dbox_list=None):
+    def __init__(self, jaccard_thresh: float = 0.5, neg_pos: int = 3, focal: bool = False,
+                 device: str = 'cpu', dbox_list: torch.Tensor = None) -> None:
+        """Initialize MultiBoxLoss.
+
+        Args:
+            jaccard_thresh (float, optional): Jaccard threshold. Defaults to 0.5.
+            neg_pos (int, optional): Negative-positive ratio. Defaults to 3.
+            focal (bool, optional): Use focal loss. Defaults to False.
+            device (str, optional): Device to use. Defaults to 'cpu'.
+            dbox_list (torch.Tensor, optional): Default box list. Defaults to None.
+        """
         super(MultiBoxLoss, self).__init__()
         self.jaccard_thresh = jaccard_thresh
         self.negpos_ratio = neg_pos
@@ -143,7 +173,16 @@ class MultiBoxLoss(nn.Module):
         self.floss = focal
         self.dbox_list = dbox_list
 
-    def forward(self, predictions, targets):
+    def forward(self, predictions: torch.Tensor, targets: list) -> tuple:
+        """Forward pass for MultiBoxLoss.
+
+        Args:
+            predictions (torch.Tensor): Predictions from the model.
+            targets (list): Ground truth targets.
+
+        Returns:
+            tuple: Localization loss and confidence loss.
+        """
         loc_data = predictions[:, :, :4]
         conf_data = predictions[:, :, 4:]
 
@@ -208,7 +247,14 @@ class MultiBoxLoss(nn.Module):
 
 
 class Detect:
-    def __init__(self, conf_thresh=0.01, top_k=200, nms_thresh=0.45):
+    def __init__(self, conf_thresh: float = 0.01, top_k: int = 200, nms_thresh: float = 0.45) -> None:
+        """Initialize Detect.
+
+        Args:
+            conf_thresh (float, optional): Confidence threshold. Defaults to 0.01.
+            top_k (int, optional): Top K results to keep. Defaults to 200.
+            nms_thresh (float, optional): Non-maximum suppression threshold. Defaults to 0.45.
+        """
         self.softmax = nn.Softmax(dim=-1)
         self.conf_thresh = conf_thresh
         self.top_k = top_k
@@ -216,20 +262,35 @@ class Detect:
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     @staticmethod
-    def decode(loc, dbox_list):
+    def decode(loc: torch.Tensor, dbox_list: torch.Tensor) -> torch.Tensor:
+        """Decode bounding boxes from predictions using default boxes.
 
+        Args:
+            loc (torch.Tensor): Location predictions.
+            dbox_list (torch.Tensor): Default box list.
+
+        Returns:
+            torch.Tensor: Decoded bounding boxes.
+        """
         boxes = torch.cat((
             dbox_list[:, :2] + loc[:, :2] * 0.1 * dbox_list[:, :2],
             dbox_list[:, 2:] * torch.exp(loc[:, 2:] * 0.2)), dim=1)
 
-        # convert boxes to (xmin,ymin,xmax,ymax)
+        # convert boxes to (xmin, ymin, xmax, ymax)
         boxes[:, :2] -= boxes[:, 2:] / 2
         boxes[:, 2:] += boxes[:, :2]
 
         return boxes
 
-    def forward(self, args):
+    def forward(self, args: tuple) -> torch.Tensor:
+        """Forward pass for Detect.
 
+        Args:
+            args (tuple): Tuple containing location data, confidence data, and default box list.
+
+        Returns:
+            torch.Tensor: Detection results.
+        """
         (loc_data, conf_data, dbox_list) = args
         num_batch = loc_data.shape[0]
         num_classes = conf_data.shape[2]
