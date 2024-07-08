@@ -155,14 +155,13 @@ def match(threshold: float, truths: torch.Tensor, priors: torch.Tensor, variance
 
 
 class MultiBoxLoss(nn.Module):
-    def __init__(self, jaccard_thresh: float = 0.5, neg_pos: int = 3, focal: bool = False,
+    def __init__(self, jaccard_thresh: float = 0.5, neg_pos: int = 3,
                  device: str = 'cpu', dbox_list: torch.Tensor = None) -> None:
         """Initialize MultiBoxLoss.
 
         Args:
             jaccard_thresh (float, optional): Jaccard threshold. Defaults to 0.5.
             neg_pos (int, optional): Negative-positive ratio. Defaults to 3.
-            focal (bool, optional): Use focal loss. Defaults to False.
             device (str, optional): Device to use. Defaults to 'cpu'.
             dbox_list (torch.Tensor, optional): Default box list. Defaults to None.
         """
@@ -170,7 +169,6 @@ class MultiBoxLoss(nn.Module):
         self.jaccard_thresh = jaccard_thresh
         self.negpos_ratio = neg_pos
         self.device = device
-        self.floss = focal
         self.dbox_list = dbox_list
 
     def forward(self, predictions: torch.Tensor, targets: list) -> tuple:
@@ -210,38 +208,32 @@ class MultiBoxLoss(nn.Module):
 
         batch_conf = conf_data.view(-1, num_classes)
 
-        if not self.floss:
-            loss_c = F.cross_entropy(
-                batch_conf, torch.clamp(conf_t_label.view(-1), 0, num_classes - 1), reduction='none')
+        loss_c = F.cross_entropy(
+            batch_conf, torch.clamp(conf_t_label.view(-1), 0, num_classes - 1), reduction='none')
 
-            num_pos = pos_mask.long().sum(1, keepdim=True)
-            loss_c = loss_c.view(num_batch, -1)
-            loss_c[pos_mask] = 0
+        num_pos = pos_mask.long().sum(1, keepdim=True)
+        loss_c = loss_c.view(num_batch, -1)
+        loss_c[pos_mask] = 0
 
-            _, loss_idx = loss_c.sort(1, descending=True)
-            _, idx_rank = loss_idx.sort(1)
+        _, loss_idx = loss_c.sort(1, descending=True)
+        _, idx_rank = loss_idx.sort(1)
 
-            num_neg = torch.clamp(num_pos * self.negpos_ratio, max=num_dbox)
+        num_neg = torch.clamp(num_pos * self.negpos_ratio, max=num_dbox)
 
-            neg_mask = idx_rank < (num_neg).expand_as(idx_rank)
+        neg_mask = idx_rank < (num_neg).expand_as(idx_rank)
 
-            pos_idx_mask = pos_mask.unsqueeze(2).expand_as(conf_data)
-            neg_idx_mask = neg_mask.unsqueeze(2).expand_as(conf_data)
+        pos_idx_mask = pos_mask.unsqueeze(2).expand_as(conf_data)
+        neg_idx_mask = neg_mask.unsqueeze(2).expand_as(conf_data)
 
-            conf_hnm = conf_data[(pos_idx_mask + neg_idx_mask).gt(0)
-            ].view(-1, num_classes)
+        conf_hnm = conf_data[(pos_idx_mask + neg_idx_mask).gt(0)
+        ].view(-1, num_classes)
 
-            conf_t_label_hnm = conf_t_label[(pos_mask + neg_mask).gt(0)]
-            if not self.floss:
-                loss_c = F.cross_entropy(conf_hnm, torch.clamp(conf_t_label_hnm, 0, num_classes - 1), reduction='sum')
-            else:
-                loss_c = self.focal(conf_hnm, conf_t_label_hnm)
+        conf_t_label_hnm = conf_t_label[(pos_mask + neg_mask).gt(0)]
+        loss_c = F.cross_entropy(conf_hnm, torch.clamp(conf_t_label_hnm, 0, num_classes - 1), reduction='sum')
 
-            N = num_pos.sum()
-            loss_l /= N
-            loss_c /= N
-        else:
-            loss_c = self.focal(batch_conf, conf_t_label.view(-1))
+        N = num_pos.sum()
+        loss_l /= N
+        loss_c /= N
 
         return loss_l, loss_c
 

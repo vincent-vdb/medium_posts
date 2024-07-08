@@ -18,7 +18,6 @@ class ModelParameters:
     image_size: int = 128
     detection_threshold: float = 0.5
     blazeface_channels: int = 32
-    focal_loss: bool = False
     model_path: str = 'weights/blazeface.pt'
     augmentation: Optional[Dict] = None
 

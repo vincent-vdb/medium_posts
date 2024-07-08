@@ -253,7 +253,6 @@ if __name__ == '__main__':
     parser.add_argument('--lr', help='the initial learning rate', type=float, default=0.001)
     parser.add_argument('--det_threshold', help='the detection threshold', type=float, default=0.5)
     parser.add_argument('--img_size', help='the resized image size', type=int, default=128)
-    parser.add_argument('--focal', help='use focal loss (default to none)', action='store_true', default=False)
     parser.add_argument('--channels', help='BlazeFace input channels', type=int, default=32)
     parser.add_argument('--original', help='Use original architecture', action='store_true', default=False)
     args = parser.parse_args()
@@ -264,7 +263,6 @@ if __name__ == '__main__':
         lr=args.lr,
         image_size=args.img_size,
         detection_threshold=args.det_threshold,
-        focal_loss=args.focal,
         blazeface_channels=args.channels,
     )
     augment = A.Compose(
@@ -316,7 +314,7 @@ if __name__ == '__main__':
         model = BlazeFace()
     model.load_anchors('anchors.npy')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    criterion = MultiBoxLoss(jaccard_thresh=0.5, neg_pos=3, device=device, focal=model_params.focal_loss, dbox_list=model.dbox_list)
+    criterion = MultiBoxLoss(jaccard_thresh=0.5, neg_pos=3, device=device, dbox_list=model.dbox_list)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=model_params.lr_scheduler_patience)
     # Train the model
