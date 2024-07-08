@@ -19,7 +19,7 @@ from utils import MultiBoxLoss, od_collate_fn
 from blazeface import BlazeFace, ModelParameters
 
 
-class MyDataset(torch.utils.data.Dataset):
+class BlazeDataset(torch.utils.data.Dataset):
     def __init__(self, labels_path: str, image_size: int, augment: A.Compose = None):
         """
         Args:
@@ -27,7 +27,6 @@ class MyDataset(torch.utils.data.Dataset):
             image_size (int): Size to which images will be resized.
             augment (A.Compose, optional): Albumentations augmentation pipeline. Defaults to None.
         """
-        self.labels_path = labels_path
         self.labels = list(sorted(glob(f'{labels_path}/*')))
         self.labels = [x for x in self.labels if os.stat(x).st_size != 0]
         self.augment = augment
@@ -46,19 +45,14 @@ class MyDataset(torch.utils.data.Dataset):
         Returns:
             tuple: Transformed image and target bounding boxes.
         """
-        # load images and masks
+        # load image
         img_path = self.labels[idx].replace('labels', 'images')[:-3] + 'jpg'
-        img = plt.imread(img_path)
-        if len(img.shape) == 2 or img.shape[2] == 1:
-            # Handle grayscale images
-            img = np.stack((img,)*3, axis=-1)
-        if img.shape[2] == 4:
-            # Handle alpha
-            img = img[:, :, :3]
+        img = self.load_image(img_path)
         rescale_output = self.resize_and_pad(img, self.image_size)
         img = rescale_output['image']
         # Read and convert labels
         target = self.read_and_convert_labels(self.labels[idx], rescale_output)
+        # Apply data augmentation
         if self.augment is not None:
             augmented = self.augment(image=img, bboxes=target)
             img = augmented['image']
@@ -72,6 +66,17 @@ class MyDataset(torch.utils.data.Dataset):
             int: Length of the dataset.
         """
         return len(self.labels)
+
+    @staticmethod
+    def load_image(image_path: str) -> np.ndarray:
+        img = plt.imread(image_path)
+        if len(img.shape) == 2 or img.shape[2] == 1:
+            # Handle grayscale images
+            img = np.stack((img,)*3, axis=-1)
+        if img.shape[2] == 4:
+            # Handle alpha
+            img = img[:, :, :3]
+        return img
 
     @staticmethod
     def read_and_convert_labels(labels_idx: str, rescale_output: dict) -> np.ndarray:
@@ -290,8 +295,8 @@ if __name__ == '__main__':
     model_params.augmentation = augment.to_dict()
     os.makedirs("weights", exist_ok=True)
     # Data loaders
-    train_dataset = MyDataset(args.dataset + '/labels/train/', image_size=model_params.image_size, augment=augment)
-    valid_dataset = MyDataset(args.dataset + '/labels/val/', image_size=model_params.image_size)
+    train_dataset = BlazeDataset(args.dataset + '/labels/train/', image_size=model_params.image_size, augment=augment)
+    valid_dataset = BlazeDataset(args.dataset + '/labels/val/', image_size=model_params.image_size)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.batch_size,
