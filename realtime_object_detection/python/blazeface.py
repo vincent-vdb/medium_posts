@@ -24,8 +24,7 @@ class ModelParameters:
 
 class BlazeBlock(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3, stride: int = 1) -> None:
-        """
-        Initializes the BlazeBlock.
+        """Initialize the BlazeBlock.
 
         Args:
             in_channels (int): Number of input channels.
@@ -34,12 +33,8 @@ class BlazeBlock(nn.Module):
             stride (int, optional): Stride of the convolution. Defaults to 1.
         """
         super(BlazeBlock, self).__init__()
-
         self.stride = stride
         self.channel_pad = out_channels - in_channels
-
-        # TFLite uses slightly different padding than PyTorch
-        # on the depthwise conv layer when the stride is 2.
         if stride == 2:
             self.max_pool = nn.MaxPool2d(kernel_size=stride, stride=stride)
             padding = 0
@@ -59,8 +54,7 @@ class BlazeBlock(nn.Module):
         self.act = nn.ReLU(inplace=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the BlazeBlock.
+        """Forward pass of the BlazeBlock.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -90,8 +84,6 @@ class FinalBlazeBlock(nn.Module):
             kernel_size (int, optional): Size of the convolution kernel. Defaults to 3.
         """
         super(FinalBlazeBlock, self).__init__()
-        # TFLite uses slightly different padding than PyTorch
-        # on the depthwise conv layer when the stride is 2.
         self.convs = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=channels,
                       kernel_size=kernel_size, stride=2, padding=0,
@@ -105,8 +97,7 @@ class FinalBlazeBlock(nn.Module):
         self.act = nn.ReLU(inplace=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the FinalBlazeBlock.
+        """Forward pass of the FinalBlazeBlock.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -122,18 +113,14 @@ class FinalBlazeBlock(nn.Module):
 class BlazeFace(nn.Module):
 
     def __init__(self, back_model: bool = False) -> None:
-        """
-        Initializes the BlazeFace model.
+        """Initialize the BlazeFace model.
 
         Args:
             back_model (bool, optional): Whether to use the back model. Defaults to False.
         """
         super(BlazeFace, self).__init__()
 
-        self.num_classes = 1
         self.num_anchors = 896
-        self.num_coords = 4
-        self.score_clipping_thresh = 100.0
         self.back_model = back_model
         if back_model:
             self.x_scale = 256.0
@@ -147,12 +134,10 @@ class BlazeFace(nn.Module):
             self.h_scale = 128.0
             self.w_scale = 128.0
             self.min_score_thresh = 0.75
-        self.min_suppression_threshold = 0.3
-
         self._define_layers()
 
     def _define_layers(self) -> None:
-        """Defines the layers of the BlazeFace model."""
+        """Define the layers of the BlazeFace model."""
         if self.back_model:
             self.backbone = nn.Sequential(
                 nn.Conv2d(in_channels=3, out_channels=24, kernel_size=5, stride=2, padding=0, bias=True),
@@ -228,8 +213,7 @@ class BlazeFace(nn.Module):
             self.regressor_16 = nn.Conv2d(96, 24, 1, bias=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the BlazeFace model.
+        """Forward pass of the BlazeFace model.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -238,42 +222,36 @@ class BlazeFace(nn.Module):
             torch.Tensor: Output tensor after applying the BlazeFace model.
         """
         x = F.pad(x, (1, 2, 1, 2), "constant", 0)
-
-        b = x.shape[0]  # batch size, needed for reshaping later
+        b = x.shape[0]
 
         if self.back_model:
-            x = self.backbone(x)  # (b, 16, 16, 96)
-            h = self.final(x)  # (b, 8, 8, 96)
+            x = self.backbone(x)
+            h = self.final(x)
         else:
-            x = self.backbone1(x)  # (b, 88, 16, 16)
-            h = self.backbone2(x)  # (b, 96, 8, 8)
+            x = self.backbone1(x)
+            h = self.backbone2(x)
 
 
-        c1 = self.classifier_8(x)  # (b, 2, 16, 16)
-        c1 = c1.permute(0, 2, 3, 1)  # (b, 16, 16, 2)
-        c1 = c1.reshape(b, -1, 3)  # (b, 512, 1)
+        c1 = self.classifier_8(x)
+        c1 = c1.permute(0, 2, 3, 1)
+        c1 = c1.reshape(b, -1, 3)
+        c2 = self.classifier_16(h)
+        c2 = c2.permute(0, 2, 3, 1)
+        c2 = c2.reshape(b, -1, 3)
+        c = torch.cat((c1, c2), dim=1)
 
-        c2 = self.classifier_16(h)  # (b, 6, 8, 8)
-        c2 = c2.permute(0, 2, 3, 1)  # (b, 8, 8, 6)
-        c2 = c2.reshape(b, -1, 3)  # (b, 384, 1)
+        r1 = self.regressor_8(x)
+        r1 = r1.permute(0, 2, 3, 1)
+        r1 = r1.reshape(b, -1, 4)
+        r2 = self.regressor_16(h)
+        r2 = r2.permute(0, 2, 3, 1)
+        r2 = r2.reshape(b, -1, 4)
 
-        c = torch.cat((c1, c2), dim=1)  # (b, 896, 1)
-
-        r1 = self.regressor_8(x)  # (b, 32, 16, 16)
-        r1 = r1.permute(0, 2, 3, 1)  # (b, 16, 16, 32)
-        r1 = r1.reshape(b, -1, 4)  # (b, 512, 16)
-
-        r2 = self.regressor_16(h)  # (b, 96, 8, 8)
-        r2 = r2.permute(0, 2, 3, 1)  # (b, 8, 8, 96)
-        r2 = r2.reshape(b, -1, 4)  # (b, 384, 16)
-
-        r = torch.cat((r1, r2), dim=1)  # (b, 896, 16)
+        r = torch.cat((r1, r2), dim=1)
         return torch.cat([r, c], dim=2)
-        #return [r, c]
 
     def _device(self) -> torch.device:
-        """
-        Which device (CPU or GPU) is being used by this model?
+        """Which device (CPU or GPU) is being used by this model
 
         Returns:
             torch.device: The device being used by this model.
@@ -281,8 +259,7 @@ class BlazeFace(nn.Module):
         return self.classifier_8.weight.device
 
     def load_weights(self, path: str) -> None:
-        """
-        Loads the weights from a file.
+        """Load the weights from a file.
 
         Args:
             path (str): Path to the weights file.
@@ -291,8 +268,7 @@ class BlazeFace(nn.Module):
         self.eval()
 
     def load_anchors(self, path: str) -> None:
-        """
-        Loads the anchors from a file.
+        """Loads the anchors from a file.
 
         Args:
             path (str): Path to the anchors file.

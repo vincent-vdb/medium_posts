@@ -10,7 +10,6 @@ import pandas as pd
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torchvision.utils import make_grid, draw_bounding_boxes
 from torchvision import transforms
 import torchvision
 import tqdm
@@ -21,7 +20,8 @@ from blazeface import BlazeFace, ModelParameters
 
 class BlazeDataset(torch.utils.data.Dataset):
     def __init__(self, labels_path: str, image_size: int, augment: A.Compose = None):
-        """
+        """Initialize the BlazeDataset.
+
         Args:
             labels_path (str): Path to the labels directory.
             image_size (int): Size to which images will be resized.
@@ -38,7 +38,8 @@ class BlazeDataset(torch.utils.data.Dataset):
         self.image_size = image_size
 
     def __getitem__(self, idx: int) -> tuple:
-        """
+        """Get item method, including image and labels loading and preprocessing.
+
         Args:
             idx (int): Index of the item.
 
@@ -61,7 +62,8 @@ class BlazeDataset(torch.utils.data.Dataset):
         return self.transform(img.copy()), np.clip(target, 0, 1)
 
     def __len__(self) -> int:
-        """
+        """Get the length of the dataset.
+
         Returns:
             int: Length of the dataset.
         """
@@ -69,6 +71,14 @@ class BlazeDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def load_image(image_path: str) -> np.ndarray:
+        """Load an image from a filename.
+
+        Args:
+            image_path (str): Path to the image.
+
+        Returns:
+            np.ndarray: Array of the image.
+        """
         img = plt.imread(image_path)
         if len(img.shape) == 2 or img.shape[2] == 1:
             # Handle grayscale images
@@ -80,7 +90,8 @@ class BlazeDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def read_and_convert_labels(labels_idx: str, rescale_output: dict) -> np.ndarray:
-        """
+        """Read and convert labels from YOLO format to x1, y1, x2, y2 format.
+
         Args:
             labels_idx (str): Path to the label file.
             rescale_output (dict): Rescaling output containing ratios and offsets.
@@ -108,7 +119,8 @@ class BlazeDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def resize_and_pad(img: np.ndarray, target_size: int = 128) -> dict:
-        """
+        """Resize image to square target_size, and pad if needed to avoid deformation.
+
         Args:
             img (np.ndarray): Input image.
             target_size (int, optional): Target size for resizing. Defaults to 128.
@@ -161,7 +173,7 @@ def compute_image_with_boxes_grid(postprocessor, preds: torch.Tensor, labels: to
             filtered_dets = detections[i, detections[i, :, 0] > model_params.detection_threshold, :]
             classes = [classes_names[int(pred_class)] for pred_class in filtered_dets[:, -1]]
             # Draw predicted boxes
-            img_with_boxes = draw_bounding_boxes(
+            img_with_boxes = torchvision.utils.draw_bounding_boxes(
                 ((images[i] * 0.5 + 0.5) * 255).to(torch.uint8),
                 filtered_dets[:, 1:-1] * images.shape[-1],
                 classes,
@@ -169,7 +181,7 @@ def compute_image_with_boxes_grid(postprocessor, preds: torch.Tensor, labels: to
             )
             # Draw ground truth labels
             classes = [classes_names[int(gt_class)] for gt_class in labels[i][:, -1]]
-            img_with_boxes = draw_bounding_boxes(
+            img_with_boxes = torchvision.utils.draw_bounding_boxes(
                 img_with_boxes,
                 labels[i][:, :4] * images.shape[-1],
                 classes,
@@ -193,7 +205,8 @@ def train_model(
         model_params: ModelParameters,
         device: torch.device,
 ) -> None:
-    """
+    """Train the model.
+
     Args:
         net (torch.nn.Module): The neural network model.
         dataloaders_dict (dict): Dictionary containing training and validation dataloaders.
