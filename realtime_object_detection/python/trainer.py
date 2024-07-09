@@ -14,7 +14,7 @@ from torchvision import transforms
 import torchvision
 import tqdm
 
-from utils import MultiBoxLoss, od_collate_fn
+from utils import MultiBoxLoss, Detect, od_collate_fn
 from blazeface import BlazeFace, ModelParameters
 
 
@@ -191,7 +191,7 @@ def compute_image_with_boxes_grid(postprocessor, preds: torch.Tensor, labels: to
         else:
             imgs_with_boxes.append(((images[i] * 0.5 + 0.5) * 255).to(torch.uint8).unsqueeze(0).cpu())
     imgs_with_boxes = torch.cat(imgs_with_boxes)
-    grid_images = torchvision.utils.make_grid(imgs_with_boxes, nrow=8)
+    grid_images = torchvision.utils.make_grid(imgs_with_boxes, nrow=4)
 
     return grid_images
 
@@ -217,6 +217,7 @@ def train_model(
         device (torch.device): Device to run the model on.
     """
     net = net.to(device)
+    postprocessor = Detect()
 
     for epoch in range(model_params.epochs):
         # Train
@@ -250,7 +251,10 @@ def train_model(
                 val_loss += loss.item()
                 val_loc_loss += loss_l.item()
                 val_class_loss += loss_c.item()
-
+            if epoch == model_params.epochs - 1:
+                # Store output on last epoch
+                val_grid_images = compute_image_with_boxes_grid(postprocessor, outputs, targets, net.dbox_list, images)
+                plt.imsave('val_grid.jpg', val_grid_images.permute(1, 2, 0).cpu().numpy())
         train_loss = running_loss / len(dataloaders_dict['train'])
         train_loc_loss = running_loc_loss / len(dataloaders_dict['train'])
         train_class_loss = running_class_loss / len(dataloaders_dict['train'])

@@ -239,7 +239,7 @@ class MultiBoxLoss(nn.Module):
 
 
 class Detect:
-    def __init__(self, conf_thresh: float = 0.01, top_k: int = 200, nms_thresh: float = 0.45) -> None:
+    def __init__(self, conf_thresh: float = 0.6, top_k: int = 200, nms_thresh: float = 0.6) -> None:
         """Initialize Detect.
 
         Args:
