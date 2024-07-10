@@ -1,4 +1,3 @@
-/** BlazeFaceDetector class - inspired from https://github.com/hollance/BlazeFace-PyTorch with Apache 2.0 License */
 class BlazeFaceDetector {
     /**
      * Constructor of the BlazeFaceDetector Detector class
@@ -81,8 +80,16 @@ class BlazeFaceDetector {
         let yMin = tmpXYmin.slice([0, 0], [-1, 1]).sub(yOffset).mul(yFactor);
         let yMax = tmpXYmax.slice([0, 0], [-1, 1]).sub(yOffset).mul(yFactor);
         boxes = tf.concat([yMin, xMin, yMax, xMax], 1);
+        // Apply Non max suppression
+        let nmsSelections = null;
+        let faceDetections = null;
+        if (faceScores !== null) {
+            nmsSelections = tf.image.nonMaxSuppression(boxes, faceScores, this.maxDetections, this.iouThreshold, this.detectionThreshold);
+            faceDetections = boxes.gather(nmsSelections, 0);
+            tf.dispose(nmsSelections);
+        }
 
-        return {'boxes': boxes, 'faceScores': faceScores};
+        return faceDetections;
     }
   
     preprocessing(image, newX, newY, top, bottom, left, right) {
@@ -119,29 +126,14 @@ class BlazeFaceDetector {
       let predImage = this.preprocessing(image, newX, newY, top, bottom, left, right);
       // Run model inference
       const rawPreds = this.model.predict(predImage);
-      tf.dispose(predImage)
-      let postPreds = tf.tidy(() => {
+      let faceDetections = tf.tidy(() => {
         return this.postprocessing(rawPreds, left / targetSize, targetSize / newX, top / targetSize, targetSize / newY);
-     })
-      // Apply NMS
-      let boxes = postPreds['boxes'];
-      let faceScores = postPreds['faceScores'];
-      let nmsSelections = null;
-      let faceDetections = null;
-      if (faceScores !== null) {
-        nmsSelections = tf.image.nonMaxSuppression(boxes, faceScores, this.maxDetections, this.iouThreshold, this.detectionThreshold);
-        faceDetections = boxes.gather(nmsSelections, 0);
-        tf.dispose(nmsSelections);
-      }
-
+      })
+      tf.dispose(predImage);
       tf.dispose(rawPreds);
-      tf.dispose(postPreds);
-      tf.dispose(boxes);
-      tf.dispose(faceScores);
 
       return {'faceDetections': faceDetections};
     }
   }
-
 
   export {BlazeFaceDetector};

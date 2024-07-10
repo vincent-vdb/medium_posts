@@ -53,7 +53,7 @@ var tensorToProcess = null;
 var processing = false;
 
 async function setupWebcam() {
-  const stream = await navigator.mediaDevices.getUserMedia({// video: true});
+  const stream = await navigator.mediaDevices.getUserMedia({
     video: {
       facingMode: "user",
       width: { ideal: 640 },
