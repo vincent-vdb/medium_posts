@@ -1,6 +1,6 @@
 # BlazeFace - Real time object detection in browser
 
-This is the code for the Medium Article "BlazeFace: How to Run an Object Detection Model in the Browser".
+This is the code for the Medium Article "BlazeFace: How to Run Real-time Object Detection in the Browser".
 
 This has two separate folders:
 - Model training with python
@@ -14,7 +14,7 @@ To train the model yourself, you first need to download the Kaggle dataset
 named [Face-Detection-Dataset](https://www.kaggle.com/datasets/fareselmenshawii/face-detection-dataset?resource=download).
 
 With default Kaggle parameters, the downloaded and extracted folder might be named `Archive` by default.
-I would suggest to move it to the `python` folder of this repo and to rename it `dataset`.
+I would suggest to move it to the `python` folder of this repo and to rename it `dataset` to make it compliant with the default parameters of the following scripts.
 
 
 ### Environment set
@@ -58,4 +58,4 @@ This will create a `weights/blazeface.tflite`: the trained model converted to TF
 
 This is allowing you to test the real time face detection in browser.
 
-Launch the `index.html` with your favorite web server (you can use you IDE such as PyCharm of VSCode).
+Just launch the `index.html` with your favorite web server (you can use you IDE such as PyCharm of VSCode).
