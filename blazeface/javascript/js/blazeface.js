@@ -60,6 +60,15 @@ class BlazeFaceDetector {
       );
     }
   
+    /**
+     * Post-process the raw predictions from the model
+     * @param {tf.tensor} rawPreds - The raw predictions from the model
+     * @param {float} xOffset - The x offset for padding correction
+     * @param {float} xFactor - The x factor for padding correction
+     * @param {float} yOffset - The y offset for padding correction
+     * @param {float} yFactor - The y factor for padding correction
+     * @return {tf.tensor} The post-processed face detections
+     */
     postprocessing(rawPreds, xOffset, xFactor, yOffset, yFactor) {
         let boxes = null;
         let faceScores = null;
@@ -92,6 +101,17 @@ class BlazeFaceDetector {
         return faceDetections;
     }
   
+    /**
+     * Pre-process the input image for model inference
+     * @param {tf.tensor} image - The input image tensor
+     * @param {int} newX - The new width of the image
+     * @param {int} newY - The new height of the image
+     * @param {int} top - The top padding
+     * @param {int} bottom - The bottom padding
+     * @param {int} left - The left padding
+     * @param {int} right - The right padding
+     * @return {tf.tensor} The pre-processed image tensor
+     */
     preprocessing(image, newX, newY, top, bottom, left, right) {
       let inferenceImageBlaze = tf.tidy(() => {
         let imgScaled = image.resizeBilinear([newY, newX]);
@@ -108,7 +128,8 @@ class BlazeFaceDetector {
     /**
      * Get the predictions from input image: applied model inference and NMS
      * @param {tf.tensor4d} image - The image as a tf.tensor, of shape [batch_size, C, H, W], with rescaled values in [-1, 1]
-     * @return {tf.tensor3d} The output bounding boxes as a tensor of shape [batch_size, 5, n_detections]
+     * @param {int} targetSize - The target size for the image
+     * @return {Object} The output bounding boxes as a tensor of shape [batch_size, 5, n_detections]
      * for n_detections detected boxes
      */
     predictOnImage(image, targetSize) {
