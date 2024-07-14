@@ -35,9 +35,9 @@ More specifically, it will select only pictures with labeled human faces and a p
 
 ### Model training
 
-You can then train the BlazeFace model for 50 epochs:
+You can then train the BlazeFace model for 100 epochs:
 ```bash
-python trainer.py --epochs 50
+python trainer.py --epochs 100
 ```
 
 This will create a file `weights/blazeface.pt` with the trained weights of the model.
