@@ -10,14 +10,26 @@ import pandas as pd
 random.seed(0)
 
 
-def create_folder_architecture(path):
+def create_folder_architecture(path: str) -> None:
+    """Creates the folder architecture for the dataset.
+
+    Args:
+        path (str): The base path where the folders will be created.
+    """
     suffixes = ['', '/images', '/images/train', '/images/val', '/labels', '/labels/train', '/labels/val']
     for suffix in suffixes:
         if not os.path.exists(path + suffix):
             os.mkdir(path + suffix)
 
 
-def download_public_file_from_s3(s3_file_key, local_file_path, bucket_name: str = 'open-images-dataset'):
+def download_public_file_from_s3(s3_file_key: str, local_file_path: str, bucket_name: str = 'open-images-dataset') -> None:
+    """Downloads a public file from an S3 bucket.
+
+    Args:
+        s3_file_key (str): The S3 file key.
+        local_file_path (str): The local file path where the file will be saved.
+        bucket_name (str, optional): The name of the S3 bucket. Defaults to 'open-images-dataset'.
+    """
     # Create an S3 client with unsigned configuration
     s3_client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
     try:
@@ -28,12 +40,26 @@ def download_public_file_from_s3(s3_file_key, local_file_path, bucket_name: str 
         print(f"Error downloading file from S3: {e}")
 
 
-def download_image(image_id, path, subset):
+def download_image(image_id: str, path: str, subset: str) -> None:
+    """Downloads an image from the dataset.
+
+    Args:
+        image_id (str): The ID of the image to download.
+        path (str): The base path where the image will be saved.
+        subset (str): The subset (train/val) to which the image belongs.
+    """
     image_path = path + '/images/' + subset + '/' + image_id + '.jpg'
     download_public_file_from_s3(f'validation/{image_id}.jpg', image_path)
 
 
-def build_labels(data, path, subset):
+def build_labels(data: pd.DataFrame, path: str, subset: str) -> None:
+    """Builds the labels for the dataset.
+
+    Args:
+        data (pd.DataFrame): The dataframe containing the label data.
+        path (str): The base path where the labels will be saved.
+        subset (str): The subset (train/val) to which the labels belong.
+    """
     output_df = pd.DataFrame({
         'class': [0] * len(data),
         'x_center': 0.5 * (data['XMin'] + data['XMax']),
@@ -45,7 +71,14 @@ def build_labels(data, path, subset):
     output_df.to_csv(output_path, header=None, sep=' ', index=None)
 
 
-def build_dataset(label_name, path, val_split: float = 0.8):
+def build_dataset(label_name: str, path: str, val_split: float = 0.8) -> None:
+    """Builds the dataset by downloading images and labels.
+
+    Args:
+        label_name (str): The label name in the Open Images Dataset V7.
+        path (str): The base path where the dataset will be created.
+        val_split (float, optional): The validation split ratio. Defaults to 0.8.
+    """
     # Create folders if needed
     create_folder_architecture(path)
     # Download dataset metadata
