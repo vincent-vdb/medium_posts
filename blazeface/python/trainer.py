@@ -269,7 +269,7 @@ def train_model(
 if __name__ == '__main__':
     # Parse the args
     parser = argparse.ArgumentParser(description='Train blaze face model')
-    parser.add_argument('--dataset', help='the dataset path', type=str, default='./dataset/')
+    parser.add_argument('--dataset', help='the dataset path', type=str, default='./open_images_dataset/')
     parser.add_argument('--batch_size', help='the batch size', type=int, default=256)
     parser.add_argument('--epochs', help='the number of epochs', type=int, default=10)
     parser.add_argument('--lr', help='the initial learning rate', type=float, default=0.001)

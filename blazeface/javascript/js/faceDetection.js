@@ -1,6 +1,11 @@
 import {BlazeFaceDetector} from './blazeface.js';
 
-
+/**
+ * Display bounding boxes on the detected faces.
+ * @param {cv.Mat} src - The source image matrix.
+ * @param {tf.Tensor} detections - The tensor containing face detection boxes.
+ * @param {Array} color - The color of the bounding box in RGBA format.
+ */
 function displayBoxes(src, detections, color = [0, 255, 0, 255]) {
     // Compute and display face box
     if (detections !== null) {
@@ -19,6 +24,10 @@ function displayBoxes(src, detections, color = [0, 255, 0, 255]) {
     }
 }
 
+/**
+ * Process the input tensor to detect faces and display bounding boxes.
+ * @param {tf.Tensor} img - The input image tensor.
+ */
 function processTensor(img) {
     // Inference with BlazeFace
     let outputs = blazeFace.predictOnImage(img, 128);
@@ -35,9 +44,7 @@ function processTensor(img) {
     tf.dispose(img);
 }
 
-const userAgent = navigator.userAgent;
 var canvasElement = document.getElementById("canvas");
-var canvasCtx = canvasElement.getContext("2d");
 // Load the models
 var blazeFace = await BlazeFaceDetector.instantiateDetector("./assets/blazeface.tflite", anchors_blazeface, 1., 1., 0.6, 0.6, 2);
 
@@ -52,6 +59,10 @@ var cap = new cv.VideoCapture(webcamElement);
 var tensorToProcess = null;
 var processing = false;
 
+/**
+ * Setup the webcam for video capture.
+ * @returns {Promise} - A promise that resolves with the webcam element.
+ */
 async function setupWebcam() {
   const stream = await navigator.mediaDevices.getUserMedia({
     video: {
@@ -72,6 +83,10 @@ async function setupWebcam() {
   });
 }
 
+/**
+ * Capture frames from the webcam and process them.
+ * @param {HTMLVideoElement} webcam - The webcam element.
+ */
 async function captureFrames(webcam) {
   const webcamIterator = await tf.data.webcam(webcam);
 
@@ -85,6 +100,9 @@ async function captureFrames(webcam) {
   requestAnimationFrame(capture); // Start capturing frames
 }
 
+/**
+ * Process the next tensor in the queue.
+ */
 function processNextTensor() {
   processing = true;
   if (tensorToProcess !== null) {
@@ -103,6 +121,9 @@ function processNextTensor() {
   time = Date.now();
 }
 
+/**
+ * Main function to setup the webcam and start capturing frames.
+ */
 (async function main() {
   const webcam = await setupWebcam();
   captureFrames(webcam);

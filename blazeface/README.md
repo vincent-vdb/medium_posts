@@ -3,21 +3,14 @@
 This is the code for the Medium Article "BlazeFace: How to Run Real-time Object Detection in the Browser".
 
 This has two separate folders:
-- Model training with python
-- Model inference and demo with javascript
+- Model training with Python
+- Model inference and demo with JavaScript
 
-## Model training
+## Model training with Python
 
+All the commands in this section are expected to be used in the `python` folder of this repo.
 
-### Dataset 
-To train the model yourself, you first need to download the Kaggle dataset 
-named [Face-Detection-Dataset](https://www.kaggle.com/datasets/fareselmenshawii/face-detection-dataset?resource=download).
-
-With default Kaggle parameters, the downloaded and extracted folder might be named `Archive` by default.
-I would suggest to move it to the `python` folder of this repo and to rename it `dataset` to make it compliant with the default parameters of the following scripts.
-
-
-### Environment set
+### Environment setup
 
 You can then create a new environment and install all the required packages:
 ```bash
@@ -26,11 +19,25 @@ conda activate blazeface
 pip install -r python/requirements.txt
 ```
 
+### Dataset 
+If you're willing to train the model yourself, you need to download and build the dataset first.
+
+To do so, you just need to run the following script:
+```bash
+python build_dataset.py
+```
+
+This will download the dataset, compute the expected label format, and separate it into train and validation sets.
+This will use the validation set of the [Open Images Dataset](https://storage.googleapis.com/openimages/web/download_v7.html), by Google.
+
+More specifically, it will select only pictures with labeled human faces and a permissive enough license.
+
+
 ### Model training
 
-You can then train the BlazeFace model for 50 epochs:
+You can then train the BlazeFace model for 100 epochs:
 ```bash
-python trainer.py --epochs 50
+python trainer.py --epochs 100
 ```
 
 This will create a file `weights/blazeface.pt` with the trained weights of the model.
@@ -51,11 +58,22 @@ python tf_lite_converter.py
 
 This will create a `weights/blazeface.tflite`: the trained model converted to TFLite format.
 
-> Again, you can check the help of the `trainer.py` script for more about the available parameters
+> As for the training script, you can check the help of the `tf_lite_converter.py` script for more about the available parameters
 
 
 ## Face detection demo in the browser
 
 This is allowing you to test the real time face detection in browser.
+
+### Copy/paste your converted model
+
+If you want to reuse the provided model of this repo, just go to the next step.
+
+If you want to use your trained model, make sure you are in the `javascript` folder of this repo, and then copy/paste the trained model:
+```bash
+cp ../python/weights/blazeface.tflite assets/.
+```
+
+### Running the web demo
 
 Just launch the `index.html` with your favorite web server (you can use you IDE such as PyCharm of VSCode).
