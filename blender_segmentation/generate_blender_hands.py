@@ -109,9 +109,8 @@ class BlenderRendering:
     # Function to randomize and apply a new color to the hand model using hex values
     def randomize_hand_color_with_hex(self, filename):
         hex_colors = [
-            "#4B3932", "#5A453C", "#695046", "#785C50",
-            "#87675A", "#967264", "#A57E6E", "#B48A78",
-            "#C39582", "#D2A18C", "#E1AC96", "#F0B8A0"
+            "#695046", "#785C50", "#87675A", "#967264", "#A57E6E",
+            "#B48A78", "#C39582", "#D2A18C", "#E1AC96", "#F0B8A0",
         ]
         random_hex = random.choice(hex_colors)
         random_color = self.hex_to_rgb(random_hex)
@@ -159,7 +158,7 @@ class BlenderRendering:
 
         for i in range(num_views):
             self.randomize_fingers()
-            self.randomize_camera()
+            #self.randomize_camera()
             self.synchronize_light_with_camera()
             bpy.context.view_layer.update()
             # Log bone positions
@@ -184,5 +183,5 @@ if __name__ == "__main__":
     output_folder = str(args.blend_file).split('/')[-1].split('.')[0]
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
-    output_image_root = output_folder + '/images/render'
+    output_image_root = output_folder + '/skin_tone/render'
     rendering.run(args.n_generation, output_image_root=output_image_root)
