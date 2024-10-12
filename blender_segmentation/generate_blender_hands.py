@@ -78,7 +78,7 @@ class BlenderRendering:
 
     @staticmethod
     def change_color(image_path, target_color):
-        desired_color = np.asarray(target_color, dtype=np.float64)
+        desired_color = np.asarray(target_color, dtype=np.int32)
         # read image
         img = plt.imread(image_path)
         img = (img * 255).astype(np.uint8)
@@ -88,10 +88,10 @@ class BlenderRendering:
         # get average bgr color of face
         average_color = cv2.mean(rgb_img, mask=mask)[:3]
         # compute difference colors and make into an image the same size as input
-        diff_color = desired_color - average_color
-        diff_color = np.full_like(rgb_img, diff_color, dtype=np.uint8)
+        diff_color = (desired_color - average_color).astype(np.int32)
+        diff_color = np.full_like(rgb_img, diff_color, dtype=np.int32)
         # shift input image color
-        output_img = (rgb_img + diff_color).clip(0, 255)
+        output_img = (rgb_img + diff_color).clip(0, 255).astype(np.uint8)
         # antialias mask, convert to float in range 0 to 1 and make 3-channels
         facemask = cv2.GaussianBlur(mask, (0, 0), sigmaX=3, sigmaY=3, borderType=cv2.BORDER_DEFAULT)
         facemask = skimage.exposure.rescale_intensity(
@@ -111,6 +111,7 @@ class BlenderRendering:
         hex_colors = [
             "#4B3932", "#5A453C", "#695046", "#785C50",
             "#87675A", "#967264", "#A57E6E", "#B48A78",
+            "#C39582", "#D2A18C", "#E1AC96", "#F0B8A0"
         ]
         random_hex = random.choice(hex_colors)
         random_color = self.hex_to_rgb(random_hex)
@@ -154,7 +155,6 @@ class BlenderRendering:
             output_image_root: str = 'images/render',
     ):
         self.use_gpu_rendering()
-
         self.set_background_color()
 
         for i in range(num_views):
