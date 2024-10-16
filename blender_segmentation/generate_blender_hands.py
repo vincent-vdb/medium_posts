@@ -158,7 +158,7 @@ class BlenderRendering:
 
         for i in range(num_views):
             self.randomize_fingers()
-            #self.randomize_camera()
+            self.randomize_camera()
             self.synchronize_light_with_camera()
             bpy.context.view_layer.update()
             # Log bone positions
@@ -183,5 +183,5 @@ if __name__ == "__main__":
     output_folder = str(args.blend_file).split('/')[-1].split('.')[0]
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
-    output_image_root = output_folder + '/skin_tone/render'
+    output_image_root = output_folder + '/images/render'
     rendering.run(args.n_generation, output_image_root=output_image_root)
