@@ -24,7 +24,7 @@ def run_demo():
     # Load the trained model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = smp.Unet(
-        encoder_name="timm-mobilenetv3_small_minimal_100",
+        encoder_name="timm-mobilenetv3_large_100",
         encoder_weights=None,
         in_channels=3,
         classes=1,
@@ -50,7 +50,6 @@ def run_demo():
         with torch.no_grad():
             mask = model(input_tensor)
             mask = mask.squeeze().cpu().numpy()
-        print(mask.mean(), mask.max())
         # Resize mask to match the original frame size
         mask_resized = cv2.resize(mask, (frame.shape[1], frame.shape[0]))
 
