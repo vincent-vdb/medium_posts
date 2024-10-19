@@ -1,9 +1,12 @@
 import argparse
 import os
 import random
+
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-import cv2
+from tqdm import tqdm
+
 
 def load_random_image(folder_path, target_size: int = None):
     """Load a random image from the specified folder."""
@@ -40,7 +43,6 @@ def generate_composite_image(hand_folder, background_folder, output_folder, inde
     output = background_image.copy()
     output[y:y + hand_image.shape[0], x:x + hand_image.shape[1]] = blended_hand
 
-
     # Save the composite image
     os.makedirs(output_folder, exist_ok=True)
     output_image_path = os.path.join(output_folder, f'image_{index:04d}.jpg')
@@ -49,11 +51,9 @@ def generate_composite_image(hand_folder, background_folder, output_folder, inde
     output_mask_path = os.path.join(output_folder, f'mask_{index:04d}.jpg')
     plt.imsave(output_mask_path, mask)
 
-    print(f"Generated: {output_image_path}, {output_mask_path}")
-
 
 def main(args):
-    for i in range(args.num_images):
+    for i in tqdm(range(args.num_images)):
         generate_composite_image(args.hand_folder, args.background_folder, args.output_folder, i + 1)
 
 
