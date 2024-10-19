@@ -112,7 +112,10 @@ def main(args):
     model = model.to(device)
 
     # Define loss function and optimizer
-    criterion = nn.BCELoss()
+    if args.loss.lower() == 'BCE':
+        criterion = nn.BCELoss()
+    else:
+        criterion = smp.losses.FocalLoss(mode='binary')
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
     # Train the model
@@ -122,17 +125,6 @@ def main(args):
     torch.save(trained_model.state_dict(), 'trained_model.pth')
     print("Model saved as 'trained_model.pth'")
 
-    # Evaluate the model on train and valid sets
-    model.eval()
-    with torch.no_grad():
-        train_loss = sum(criterion(model(images.to(device)), masks.to(device).unsqueeze(1)).item()
-                         for images, masks in train_loader) / len(train_loader)
-        valid_loss = sum(criterion(model(images.to(device)), masks.to(device).unsqueeze(1)).item()
-                         for images, masks in valid_loader) / len(valid_loader)
-
-    print(f"Final Train Loss: {train_loss:.4f}")
-    print(f"Final Valid Loss: {valid_loss:.4f}")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a semantic segmentation model")
@@ -141,6 +133,8 @@ if __name__ == "__main__":
     parser.add_argument("--num_epochs", type=int, default=5, help="Number of epochs to train")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate for optimizer")
+    parser.add_argument("--loss", type=str, default="focal", help="Loss, either BCE or focal")
+
 
     args = parser.parse_args()
     main(args)
