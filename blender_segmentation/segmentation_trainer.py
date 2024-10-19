@@ -103,7 +103,7 @@ def main(args):
 
     # Create model
     model = smp.Unet(
-        encoder_name="timm-mobilenetv3_small_minimal_100",
+        encoder_name=args.encoder,
         encoder_weights="imagenet",
         in_channels=3,
         classes=1,
@@ -137,6 +137,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a semantic segmentation model")
     parser.add_argument("--dataset", type=str, default="dataset", help="Path to the dataset directory")
+    parser.add_argument("--encoder", type=str, default="timm-mobilenetv3_large_100", help="Encoder architecture")
     parser.add_argument("--num_epochs", type=int, default=5, help="Number of epochs to train")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate for optimizer")
