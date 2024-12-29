@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+from torchmetrics.classification import BinaryJaccardIndex
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import matplotlib.pyplot as plt
@@ -18,7 +19,6 @@ class CustomDataset(Dataset):
         self.transform = transform
         self.images = sorted(glob(image_dir + '/image*.jpg'))
         self.masks = [img.replace('image','mask') for img in self.images]
-        
 
     def __len__(self):
         return len(self.images)
@@ -57,6 +57,8 @@ def get_valid_transform():
 
 
 def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epochs, device):
+    train_metric_iou = BinaryJaccardIndex().to(device)
+    val_metric_iou = BinaryJaccardIndex().to(device)
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
@@ -66,6 +68,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
 
             optimizer.zero_grad()
             outputs = model(images)
+            train_metric_iou.update(outputs, masks.unsqueeze(1))
             loss = criterion(outputs, masks.unsqueeze(1))
             loss.backward()
             optimizer.step()
@@ -73,7 +76,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             train_loss += loss.item()
 
         train_loss /= len(train_loader)
-
+        train_iou = train_metric_iou.compute()
         # Validation
         model.eval()
         valid_loss = 0.0
@@ -81,12 +84,16 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             for images, masks in valid_loader:
                 images, masks = images.to(device), masks.to(device)
                 outputs = model(images)
+                val_metric_iou.update(outputs, masks.unsqueeze(1))
                 loss = criterion(outputs, masks.unsqueeze(1))
                 valid_loss += loss.item()
 
         valid_loss /= len(valid_loader)
+        val_iou = val_metric_iou.compute()
 
-        print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}, Valid Loss: {valid_loss:.4f}")
+        print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}, IoU: {train_iou:.2f}, Valid Loss: {valid_loss:.4f}, IoU: {val_iou:.2f}")
+        train_metric_iou.reset()
+        val_metric_iou.reset()
 
     return model
 
@@ -122,8 +129,8 @@ def main(args):
     trained_model = train_model(model, train_loader, valid_loader, criterion, optimizer, args.num_epochs, device)
 
     # Save the trained model
-    torch.save(trained_model.state_dict(), 'trained_model.pth')
-    print("Model saved as 'trained_model.pth'")
+    torch.save(trained_model.state_dict(), args.output_name)
+    print(f"Model saved as {args.output_name}")
 
 
 if __name__ == "__main__":
@@ -134,6 +141,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate for optimizer")
     parser.add_argument("--loss", type=str, default="focal", help="Loss, either BCE or focal")
+    parser.add_argument("--output_name", type=str, default="trained_model.pt", help="Saved model filename")
 
 
     args = parser.parse_args()
