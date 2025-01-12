@@ -1,0 +1,10 @@
+bpy==4.0.0
+matplotlib
+numpy
+opencv-python
+scikit-image
+torch
+albumentations
+tqdm
+segmentation-models-pytorch
+torchmetrics
