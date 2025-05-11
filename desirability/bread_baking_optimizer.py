@@ -1,3 +1,4 @@
+from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from scipy.optimize import minimize
 from scipy.stats.mstats import gmean
@@ -5,9 +6,16 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 class BreadOptimizer:
-    def __init__(self):
+    """A class to optimize bread baking parameters based on texture, flavor and practicality.
+
+    The optimizer uses desirability functions and weighted geometric means to find optimal
+    baking parameters given preferences for different quality aspects.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the BreadOptimizer with parameter bounds."""
         # Define parameter bounds
-        self.bounds = {
+        self.bounds: Dict[str, Tuple[float, float]] = {
             'fermentation_time': (1, 24),  # hours
             'ferment_temp': (20, 30),  # Celsius
             'hydration': (60, 85),  # percentage
@@ -15,25 +23,54 @@ class BreadOptimizer:
             'baking_temp': (180, 250)  # Celsius
         }
 
-    def desirability_one_sided(self, x, x_min, x_max, higher_better=True):
-        """One-sided desirability function"""
-        if higher_better:
-            if x <= x_min:
-                return 0.0
-            elif x >= x_max:
-                return 1.0
-            else:
-                return ((x - x_min) / (x_max - x_min))
-        else:
-            if x <= x_min:
-                return 1.0
-            elif x >= x_max:
-                return 0.0
-            else:
-                return ((x_max - x) / (x_max - x_min))
+    def desirability_smaller_is_better(self, x: float, x_min: float, x_max: float) -> float:
+        """Calculate desirability function value where smaller values are better.
 
-    def desirability_two_sided(self, x, x_min, x_target, x_max):
-        """Two-sided desirability function with target value"""
+        Args:
+            x: Input parameter value
+            x_min: Minimum acceptable value
+            x_max: Maximum acceptable value
+
+        Returns:
+            Desirability score between 0 and 1
+        """
+        if x <= x_min:
+            return 1.0
+        elif x >= x_max:
+            return 0.0
+        else:
+            return ((x_max - x) / (x_max - x_min))
+
+    def desirability_larger_is_better(self, x: float, x_min: float, x_max: float) -> float:
+        """Calculate desirability function value where larger values are better.
+
+        Args:
+            x: Input parameter value
+            x_min: Minimum acceptable value
+            x_max: Maximum acceptable value
+
+        Returns:
+            Desirability score between 0 and 1
+        """
+        if x <= x_min:
+            return 0.0
+        elif x >= x_max:
+            return 1.0
+        else:
+            return ((x - x_min) / (x_max - x_min))
+
+    def desirability_two_sided(self, x: float, x_min: float, x_target: float, x_max: float) -> float:
+        """Calculate two-sided desirability function value with target value.
+
+        Args:
+            x: Input parameter value
+            x_min: Minimum acceptable value
+            x_target: Target (optimal) value
+            x_max: Maximum acceptable value
+
+        Returns:
+            Desirability score between 0 and 1
+        """
         if x_min <= x <= x_target:
             return (x - x_min) / (x_target - x_min)
         elif x_target < x <= x_max:
@@ -41,8 +78,16 @@ class BreadOptimizer:
         else:
             return 0.0
 
-    def compute_texture_quality(self, params):
-        """Compute texture quality based on parameters"""
+    def compute_texture_quality(self, params: List[float]) -> float:
+        """Compute texture quality score based on input parameters.
+
+        Args:
+            params: List of parameter values [fermentation_time, ferment_temp, hydration,
+                   kneading_time, baking_temp]
+
+        Returns:
+            Weighted texture quality score between 0 and 1
+        """
         fermentation_d = self.desirability_two_sided(params[0], 2, 12, 24)
         ferment_temp_d = self.desirability_two_sided(params[1], 20, 25, 30)
         hydration_d = self.desirability_two_sided(params[2], 60, 75, 85)
@@ -54,10 +99,18 @@ class BreadOptimizer:
         return np.average([fermentation_d, ferment_temp_d, hydration_d, kneading_d, baking_temp_d],
                           weights=weights)
 
-    def compute_flavor_profile(self, params):
-        """Compute flavor profile score"""
+    def compute_flavor_profile(self, params: List[float]) -> float:
+        """Compute flavor profile score based on input parameters.
+
+        Args:
+            params: List of parameter values [fermentation_time, ferment_temp, hydration,
+                   kneading_time, baking_temp]
+
+        Returns:
+            Weighted flavor profile score between 0 and 1
+        """
         # Flavor mainly affected by fermentation parameters
-        fermentation_d = self.desirability_one_sided(params[0], 4, 18, higher_better=True)
+        fermentation_d = self.desirability_larger_is_better(params[0], 4, 18)
         ferment_temp_d = self.desirability_two_sided(params[1], 20, 24, 28)
         hydration_d = self.desirability_two_sided(params[2], 65, 75, 85)
 
@@ -66,31 +119,34 @@ class BreadOptimizer:
         return np.average([fermentation_d, ferment_temp_d, hydration_d],
                           weights=weights)
 
-    def compute_practicality(self, params):
-        """Compute practicality score (ease of making)"""
-        fermentation_d = self.desirability_one_sided(params[0], 2, 24, higher_better=False)
+    def compute_practicality(self, params: List[float]) -> float:
+        """Compute practicality score based on input parameters.
+
+        Args:
+            params: List of parameter values [fermentation_time, ferment_temp, hydration,
+                   kneading_time, baking_temp]
+
+        Returns:
+            Weighted practicality score between 0 and 1
+        """
+        fermentation_d = self.desirability_smaller_is_better(params[0], 2, 24)
         hydration_d = self.desirability_two_sided(params[2], 65, 70, 80)
-        kneading_d = self.desirability_one_sided(params[3], 5, 20, higher_better=False)
-        baking_temp_d = self.desirability_one_sided(params[4], 180, 250, higher_better=False)
+        kneading_d = self.desirability_smaller_is_better(params[3], 5, 20)
+        baking_temp_d = self.desirability_smaller_is_better(params[4], 180, 250)
 
         weights = [0.4, 0.2, 0.2, 0.2]
         return np.average([fermentation_d, hydration_d, kneading_d, baking_temp_d],
                           weights=weights)
 
-    def overall_desirability(self, desirabilities, weights=None):
-        """Compute overall desirability using geometric mean
+    def overall_desirability(self, desirabilities: List[float], weights: Optional[List[float]] = None) -> float:
+        """Compute overall desirability using geometric mean.
 
-        Parameters:
-        -----------
-        desirabilities : list
-            Individual desirability scores
-        weights : list
-            Weights for each desirability
+        Args:
+            desirabilities: Individual desirability scores
+            weights: Weights for each desirability. If None, equal weights are used.
 
         Returns:
-        --------
-        float
-            Overall desirability score
+            Overall desirability score between 0 and 1
         """
         if weights is None:
             weights = [1] * len(desirabilities)
@@ -102,10 +158,15 @@ class BreadOptimizer:
         # Calculate geometric mean
         return np.prod(d ** w) ** (1 / np.sum(w))
 
-    def objective_function(self, params, weights):
-        """
-        Compute overall desirability score based on individual quality metrics
-        Returns negative value for minimization (SciPy minimizes by default)
+    def objective_function(self, params: List[float], weights: List[float]) -> float:
+        """Compute overall desirability score based on individual quality metrics.
+
+        Args:
+            params: List of parameter values
+            weights: Weights for texture, flavor and practicality scores
+
+        Returns:
+            Negative overall desirability score (for minimization)
         """
         # Compute individual desirability scores
         texture = self.compute_texture_quality(params)
@@ -122,24 +183,24 @@ class BreadOptimizer:
         # but optimization functions typically minimize
         return -overall_d
 
-    def optimize(self, preference=None):
-        """
-        Find optimal parameters based on preference weights
+    def optimize(self, preference: Optional[Union[str, Tuple[float, float, float]]] = None) -> Dict:
+        """Find optimal parameters based on preference weights.
 
-        Parameters:
-        -----------
-        preference : str, optional
-            Preference profile to use:
-            - "texture": Emphasize texture quality
-            - "flavor": Emphasize flavor profile
-            - "practicality": Emphasize practicality
-            - "balanced": Equal weights (default)
-            - Custom tuple of weights can also be provided
+        Args:
+            preference: Preference profile to use:
+                - "texture": Emphasize texture quality
+                - "flavor": Emphasize flavor profile
+                - "practicality": Emphasize practicality
+                - "balanced": Equal weights (default)
+                - Custom tuple of weights can also be provided
 
         Returns:
-        --------
-        dict
-            Optimization r
+            Dictionary containing:
+                - parameters: Optimized parameter values
+                - achieved_scores: Achieved quality scores
+                - weights: Used preference weights
+                - overall_desirability: Final desirability score
+                - success: Whether optimization succeeded
         """
         # Define parameter bounds
         bounds = {
@@ -195,7 +256,15 @@ class BreadOptimizer:
             'success': result.success
         }
 
-    def plot_scores_radar(self, results):
+    def plot_scores_radar(self, results: Dict) -> plt.Figure:
+        """Create radar plot of achieved scores.
+
+        Args:
+            results: Dictionary containing optimization results
+
+        Returns:
+            Matplotlib figure with radar plot
+        """
         # Create polar plot
         fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
 
@@ -231,7 +300,15 @@ class BreadOptimizer:
 
         return fig
 
-    def plot_parameters(self, results):
+    def plot_parameters(self, results: Dict) -> plt.Figure:
+        """Create bar plot of optimized parameters.
+
+        Args:
+            results: Dictionary containing optimization results
+
+        Returns:
+            Matplotlib figure with parameter bar plot
+        """
         # Create horizontal bar chart
         params = results['parameters']
         y_pos = np.arange(len(params))
@@ -267,17 +344,3 @@ result = optimizer.optimize(preference='flavor')
 fig = optimizer.plot_scores_radar(result)
 fig = optimizer.plot_parameters(result)
 plt.show()
-
-# Print numerical results
-print("\nOptimal parameters for target scores:")
-print("\nTarget scores:")
-for param, value in result['target_scores'].items():
-    print(f"{param}: {value:.2f}")
-
-print("\nAchieved scores:")
-for param, value in result['achieved_scores'].items():
-    print(f"{param}: {value:.2f}")
-
-print("\nRecommended parameters:")
-for param, value in result['parameters'].items():
-    print(f"{param}: {value:.2f}")
