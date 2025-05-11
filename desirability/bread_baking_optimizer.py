@@ -39,7 +39,7 @@ class BreadOptimizer:
         elif x >= x_max:
             return 0.0
         else:
-            return ((x_max - x) / (x_max - x_min))
+            return (x_max - x) / (x_max - x_min)
 
     def desirability_larger_is_better(self, x: float, x_min: float, x_max: float) -> float:
         """Calculate desirability function value where larger values are better.
@@ -57,9 +57,9 @@ class BreadOptimizer:
         elif x >= x_max:
             return 1.0
         else:
-            return ((x - x_min) / (x_max - x_min))
+            return (x - x_min) / (x_max - x_min)
 
-    def desirability_two_sided(self, x: float, x_min: float, x_target: float, x_max: float) -> float:
+    def desirability_target_is_best(self, x: float, x_min: float, x_target: float, x_max: float) -> float:
         """Calculate two-sided desirability function value with target value.
 
         Args:
@@ -88,11 +88,11 @@ class BreadOptimizer:
         Returns:
             Weighted texture quality score between 0 and 1
         """
-        fermentation_d = self.desirability_two_sided(params[0], 2, 12, 24)
-        ferment_temp_d = self.desirability_two_sided(params[1], 20, 25, 30)
-        hydration_d = self.desirability_two_sided(params[2], 60, 75, 85)
-        kneading_d = self.desirability_two_sided(params[3], 5, 12, 20)
-        baking_temp_d = self.desirability_two_sided(params[4], 180, 220, 250)
+        fermentation_d = self.desirability_target_is_best(params[0], 2, 12, 24)
+        ferment_temp_d = self.desirability_target_is_best(params[1], 20, 25, 30)
+        hydration_d = self.desirability_target_is_best(params[2], 60, 75, 85)
+        kneading_d = self.desirability_target_is_best(params[3], 5, 12, 20)
+        baking_temp_d = self.desirability_target_is_best(params[4], 180, 220, 250)
 
         # Weighted combination
         weights = [0.25, 0.15, 0.2, 0.2, 0.2]  # Adjusted to include baking temp
@@ -111,8 +111,8 @@ class BreadOptimizer:
         """
         # Flavor mainly affected by fermentation parameters
         fermentation_d = self.desirability_larger_is_better(params[0], 4, 18)
-        ferment_temp_d = self.desirability_two_sided(params[1], 20, 24, 28)
-        hydration_d = self.desirability_two_sided(params[2], 65, 75, 85)
+        ferment_temp_d = self.desirability_target_is_best(params[1], 20, 24, 28)
+        hydration_d = self.desirability_target_is_best(params[2], 65, 75, 85)
 
         # Baking temperature has minimal effect on flavor
         weights = [0.5, 0.3, 0.2]
@@ -130,7 +130,7 @@ class BreadOptimizer:
             Weighted practicality score between 0 and 1
         """
         fermentation_d = self.desirability_smaller_is_better(params[0], 2, 24)
-        hydration_d = self.desirability_two_sided(params[2], 65, 70, 80)
+        hydration_d = self.desirability_target_is_best(params[2], 65, 70, 80)
         kneading_d = self.desirability_smaller_is_better(params[3], 5, 20)
         baking_temp_d = self.desirability_smaller_is_better(params[4], 180, 250)
 
