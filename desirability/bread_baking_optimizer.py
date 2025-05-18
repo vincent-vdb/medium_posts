@@ -16,7 +16,7 @@ class BreadOptimizer:
         """Initialize the BreadOptimizer with parameter bounds."""
         # Define parameter bounds
         self.bounds: Dict[str, Tuple[float, float]] = {
-            'fermentation_time': (1, 24),  # hours
+            'ferment_time': (30, 180),  # Minutes
             'ferment_temp': (20, 30),  # Celsius
             'hydration': (60, 85),  # percentage
             'kneading_time': (0, 20),  # minutes
@@ -88,7 +88,7 @@ class BreadOptimizer:
         Returns:
             Weighted texture quality score between 0 and 1
         """
-        fermentation_d = self.desirability_target_is_best(params[0], 2, 12, 24)
+        fermentation_d = self.desirability_target_is_best(params[0], 30, 120, 180)
         ferment_temp_d = self.desirability_target_is_best(params[1], 20, 25, 30)
         hydration_d = self.desirability_target_is_best(params[2], 60, 75, 85)
         kneading_d = self.desirability_target_is_best(params[3], 5, 12, 20)
@@ -110,7 +110,7 @@ class BreadOptimizer:
             Weighted flavor profile score between 0 and 1
         """
         # Flavor mainly affected by fermentation parameters
-        fermentation_d = self.desirability_larger_is_better(params[0], 4, 18)
+        fermentation_d = self.desirability_larger_is_better(params[0], 30, 180)
         ferment_temp_d = self.desirability_target_is_best(params[1], 20, 24, 28)
         hydration_d = self.desirability_target_is_best(params[2], 65, 75, 85)
 
@@ -129,7 +129,7 @@ class BreadOptimizer:
         Returns:
             Weighted practicality score between 0 and 1
         """
-        fermentation_d = self.desirability_smaller_is_better(params[0], 2, 24)
+        fermentation_d = self.desirability_smaller_is_better(params[0], 30, 180)
         hydration_d = self.desirability_target_is_best(params[2], 65, 70, 80)
         kneading_d = self.desirability_smaller_is_better(params[3], 5, 20)
         baking_temp_d = self.desirability_smaller_is_better(params[4], 180, 250)
@@ -202,15 +202,6 @@ class BreadOptimizer:
                 - overall_desirability: Final desirability score
                 - success: Whether optimization succeeded
         """
-        # Define parameter bounds
-        bounds = {
-            'fermentation_time': (1, 24),
-            'fermentation_temp': (20, 30),
-            'hydration_level': (60, 85),
-            'kneading_time': (0, 20),
-            'baking_temp': (180, 250)
-        }
-
         # Set weights based on preference
         if preference == "texture":
             weights = [0.7, 0.2, 0.1]  # High emphasis on texture
@@ -224,19 +215,19 @@ class BreadOptimizer:
             weights = [0.33, 0.33, 0.34]  # Balanced by default
 
         # Initial guess (middle of bounds)
-        x0 = [(b[0] + b[1]) / 2 for b in bounds.values()]
+        x0 = [(b[0] + b[1]) / 2 for b in self.bounds.values()]
 
         # Run optimization
         result = minimize(
             self.objective_function,
             x0,
             args=(weights,),
-            bounds=list(bounds.values()),
+            bounds=list(self.bounds.values()),
             method='SLSQP'
         )
 
         # Return parameters and achieved scores
-        params = {name: value for name, value in zip(bounds.keys(), result.x)}
+        params = {name: value for name, value in zip(self.bounds.keys(), result.x)}
         achieved = {
             'texture': self.compute_texture_quality(result.x),
             'flavor': self.compute_flavor_profile(result.x),
@@ -295,7 +286,7 @@ class BreadOptimizer:
 
         # Add legend and title
         weights_str = ", ".join([f"{w:.2f}" for w in weights])
-        plt.legend(loc='upper right')
+        plt.legend()
         plt.title(f'Achieved Scores (Overall: {results["overall_desirability"]:.2f}, Weights: {weights_str})')
 
         return fig
